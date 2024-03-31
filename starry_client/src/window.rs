@@ -1,6 +1,13 @@
-use std::{cell::Cell, fs::File, io::{Seek, SeekFrom, Write}};
+use std::{
+    cell::Cell,
+    fs::File,
+    io::{Seek, SeekFrom, Write},
+};
 
-use crate::base::{color::Color, renderer::{RenderMode, Renderer}};
+use crate::base::{
+    color::Color,
+    renderer::{RenderMode, Renderer},
+};
 
 // TODO: 读帧缓冲设备属性
 /// 屏幕宽度
@@ -48,7 +55,7 @@ impl Renderer for Window {
         self.data_opt.as_ref().unwrap()
     }
 
-    fn data_mut(&mut self) -> &mut [Color]{
+    fn data_mut(&mut self) -> &mut [Color] {
         self.data_opt.as_mut().unwrap()
     }
 
@@ -58,7 +65,7 @@ impl Renderer for Window {
     }
 
     fn mode(&self) -> &Cell<RenderMode> {
-        &self.mode    
+        &self.mode
     }
 }
 
@@ -76,10 +83,10 @@ impl Window {
             resizable: false,
             mode: Cell::new(RenderMode::Blend),
             // file_opt: None,
-            data_opt: Some(vec!(Color::rgb(0, 0, 0); (w * h) as usize).into_boxed_slice()),
+            data_opt: Some(vec![Color::rgb(0, 0, 0); (w * h) as usize].into_boxed_slice()),
         }
 
-        // TODO: 与服务器通信 
+        // TODO: 与服务器通信
     }
 
     /// # 函数功能
@@ -90,14 +97,16 @@ impl Window {
         for y in 0..self.height() as i32 {
             for x in 0..self.width() as i32 {
                 let pixel = self.get_pixel(x, y);
-                let offset =  (((y + self.y()) * SCREEN_WIDTH as i32) + x + self.x()) * 4;
+                let offset = (((y + self.y()) * SCREEN_WIDTH as i32) + x + self.x()) * 4;
                 // 写缓冲区
-                fb.seek(SeekFrom::Start(offset as u64)).expect("Unable to seek framebuffer");
-                fb.write_all(&pixel.to_rgba_bytes()).expect("Unable to write framebuffer");
+                fb.seek(SeekFrom::Start(offset as u64))
+                    .expect("Unable to seek framebuffer");
+                fb.write_all(&pixel.to_rgba_bytes())
+                    .expect("Unable to write framebuffer");
             }
         }
     }
-    
+
     pub fn x(&self) -> i32 {
         self.x
     }
@@ -109,6 +118,4 @@ impl Window {
     pub fn title(&self) -> String {
         self.t.clone()
     }
-
-
 }

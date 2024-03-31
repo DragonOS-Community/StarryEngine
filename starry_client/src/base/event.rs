@@ -9,7 +9,7 @@ pub enum EventOption {
     /// 空事件
     None,
     /// 未知事件
-    Unknown,    
+    Unknown,
 }
 
 /// TODO: 整理
@@ -40,7 +40,9 @@ impl Event {
         match self.code {
             EVENT_NONE => EventOption::None,
             EVENT_KEY => EventOption::Key(KeyEvent::from_event(self)),
-            EVENT_MOUSE_RELATIVE => EventOption::MouseRelative(MouseRelativeEvent::from_event(self)),
+            EVENT_MOUSE_RELATIVE => {
+                EventOption::MouseRelative(MouseRelativeEvent::from_event(self))
+            }
             EVENT_BUTTON => EventOption::Button(ButtonEvent::from_event(self)),
             _ => EventOption::Unknown,
         }
@@ -132,16 +134,16 @@ impl ButtonEvent {
         Event {
             code: EVENT_BUTTON,
             a: self.left as i64 | (self.middle as i64) << 1 | (self.right as i64) << 2,
-            b: 0    
+            b: 0,
         }
     }
 
     /// 从Event转换为ButtonEvent
     pub fn from_event(event: Event) -> ButtonEvent {
         ButtonEvent {
-            left: event.a & (1 << 0)  == 1,
+            left: event.a & (1 << 0) == 1,
             middle: event.a & (1 << 1) == 1,
-            right: event.a & (1 << 2) == 1
+            right: event.a & (1 << 2) == 1,
         }
     }
 }

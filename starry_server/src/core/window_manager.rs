@@ -119,7 +119,7 @@ impl WindowManager {
         _flags: &str,
         _title: String,
         image_path: &[u8],
-    ){
+    ) {
         let mouse_update_event: MouseUpdateEvent;
 
         {
@@ -225,10 +225,16 @@ impl WindowManager {
         let max_x: i32 = SCREEN_WIDTH as i32;
         let max_y: i32 = SCREEN_HEIGHT as i32;
         let cursor_rect = self.cursor_rect();
-        
+
         //防止鼠标出界
-        let x = cmp::max(0, cmp::min(max_x - cursor_rect.width(), cursor_x + event.dx));
-        let y = cmp::max(0, cmp::min(max_y - cursor_rect.height(), cursor_y - event.dy)); // 原点在左上角，向上为负
+        let x = cmp::max(
+            0,
+            cmp::min(max_x - cursor_rect.width(), cursor_x + event.dx),
+        );
+        let y = cmp::max(
+            0,
+            cmp::min(max_y - cursor_rect.height(), cursor_y - event.dy),
+        ); // 原点在左上角，向上为负
 
         self.handle_mouse_update_event(MouseUpdateEvent { x, y });
     }
