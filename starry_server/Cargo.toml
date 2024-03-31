@@ -1,0 +1,17 @@
+[package]
+name = "starry_server"
+version = "0.1.0"
+edition = "2021"
+description = "The server of Starry Engine"
+authors = [ "2447742618 <2447742618@qq.com>" ]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+starry_client = {path = "../starry_client" }
+bitflags = "2.4.2"
+serde = "1"
+serde_derive = "1"
+toml = "0.8.1"
+log = "0.4.20"
+image = "0.24.7"
