@@ -27,7 +27,7 @@ pub struct Window {
     /// 窗口的高度
     h: u32,
     /// 窗口的标题
-    t: String,
+    title: String,
     /// TODO
     // window_async: bool,
     /// 窗口是否大小可变
@@ -74,11 +74,11 @@ impl Window {
     /// TODO: 接收flags
     pub fn new(x: i32, y: i32, w: u32, h: u32, title: &str) -> Self {
         Window {
-            x: x,
-            y: y,
-            w: w,
-            h: h,
-            t: title.to_string(),
+            x,
+            y,
+            w,
+            h,
+            title: title.to_string(),
             // window_async: false,
             resizable: false,
             mode: Cell::new(RenderMode::Blend),
@@ -116,6 +116,6 @@ impl Window {
     }
 
     pub fn title(&self) -> String {
-        self.t.clone()
+        self.title.clone()
     }
 }
