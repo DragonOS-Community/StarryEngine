@@ -5,6 +5,8 @@ use super::{
     graphicspath::{GraphicsPath, PointType},
 };
 
+static FONT_ASSET : &[u8] = include_bytes!("../font/unifont.font");
+
 #[derive(Clone, Copy, Debug)]
 pub enum RenderMode {
     /// 颜色混合
@@ -71,17 +73,138 @@ pub trait Renderer {
         }
     }
 
-    #[allow(unused_variables)]
-    /// TODO
-    fn arc(&mut self, x0: i32, y0: i32, radius: i32, parts: u8, color: Color) {}
-    #[allow(unused_variables)]
-    /// TODO
-    fn circle(&mut self, x0: i32, y0: i32, radius: i32, color: Color) {}
-    #[allow(unused_variables)]
-    /// TODO
-    fn line4points(&mut self, argx1: i32, argy1: i32, argx2: i32, argy2: i32, color: Color) {}
-    #[allow(unused_variables)]
-    /// TODO
+    /// TODO 注释补充
+    fn arc(&mut self, x0: i32, y0: i32, radius: i32, parts: u8, color: Color) {
+        let mut x = radius.abs();
+        let mut y = 0;
+        let mut err = 0;
+
+        // https://github.com/rust-lang/rust-clippy/issues/5354
+        while x >= y {
+            if radius < 0 {
+                if parts & 1 << 0 != 0 {
+                    self.rect(x0 - x, y0 + y, x as u32, 1, color);
+                }
+                if parts & 1 << 1 != 0 {
+                    self.rect(x0, y0 + y, x as u32 + 1, 1, color);
+                }
+                if parts & 1 << 2 != 0 {
+                    self.rect(x0 - y, y0 + x, y as u32, 1, color);
+                }
+                if parts & 1 << 3 != 0 {
+                    self.rect(x0, y0 + x, y as u32 + 1, 1, color);
+                }
+                if parts & 1 << 4 != 0 {
+                    self.rect(x0 - x, y0 - y, x as u32, 1, color);
+                }
+                if parts & 1 << 5 != 0 {
+                    self.rect(x0, y0 - y, x as u32 + 1, 1, color);
+                }
+                if parts & 1 << 6 != 0 {
+                    self.rect(x0 - y, y0 - x, y as u32, 1, color);
+                }
+                if parts & 1 << 7 != 0 {
+                    self.rect(x0, y0 - x, y as u32 + 1, 1, color);
+                }
+            } else if radius == 0 {
+                self.pixel(x0, y0, color);
+            } else {
+                if parts & 1 << 0 != 0 {
+                    self.pixel(x0 - x, y0 + y, color);
+                }
+                if parts & 1 << 1 != 0 {
+                    self.pixel(x0 + x, y0 + y, color);
+                }
+                if parts & 1 << 2 != 0 {
+                    self.pixel(x0 - y, y0 + x, color);
+                }
+                if parts & 1 << 3 != 0 {
+                    self.pixel(x0 + y, y0 + x, color);
+                }
+                if parts & 1 << 4 != 0 {
+                    self.pixel(x0 - x, y0 - y, color);
+                }
+                if parts & 1 << 5 != 0 {
+                    self.pixel(x0 + x, y0 - y, color);
+                }
+                if parts & 1 << 6 != 0 {
+                    self.pixel(x0 - y, y0 - x, color);
+                }
+                if parts & 1 << 7 != 0 {
+                    self.pixel(x0 + y, y0 - x, color);
+                }
+            }
+
+            y += 1;
+            err += 1 + 2 * y;
+            if 2 * (err - x) + 1 > 0 {
+                x -= 1;
+                err += 1 - 2 * x;
+            }
+        }
+    }
+    
+    /// TODO 注释补充
+    fn circle(&mut self, x0: i32, y0: i32, radius: i32, color: Color) {
+        let mut x = radius.abs();
+        let mut y = 0;
+        let mut err = -radius.abs();
+
+        match radius {
+            radius if radius > 0 => {
+                err = 0;
+                while x >= y {
+                    self.pixel(x0 - x, y0 + y, color);
+                    self.pixel(x0 + x, y0 + y, color);
+                    self.pixel(x0 - y, y0 + x, color);
+                    self.pixel(x0 + y, y0 + x, color);
+                    self.pixel(x0 - x, y0 - y, color);
+                    self.pixel(x0 + x, y0 - y, color);
+                    self.pixel(x0 - y, y0 - x, color);
+                    self.pixel(x0 + y, y0 - x, color);
+
+                    y += 1;
+                    err += 1 + 2 * y;
+                    if 2 * (err - x) + 1 > 0 {
+                        x -= 1;
+                        err += 1 - 2 * x;
+                    }
+                }
+            }
+
+            radius if radius < 0 => {
+                while x >= y {
+                    let lasty = y;
+                    err += y;
+                    y += 1;
+                    err += y;
+                    self.line4points(x0, y0, x, lasty, color);
+                    if err >= 0 {
+                        if x != lasty {
+                            self.line4points(x0, y0, lasty, x, color);
+                        }
+                        err -= x;
+                        x -= 1;
+                        err -= x;
+                    }
+                }
+            }
+            _ => {
+                self.pixel(x0, y0, color);
+            }
+        }
+    }
+
+    /// TODO 注释补充
+    fn line4points(&mut self, x0: i32, y0: i32, x: i32, y: i32, color: Color) {
+        //self.line(x0 - x, y0 + y, (x+x0), y0 + y, color);
+        self.rect(x0 - x, y0 + y, x as u32 * 2 + 1, 1, color);
+        if y != 0 {
+            //self.line(x0 - x, y0 - y, (x+x0), y0-y , color);
+            self.rect(x0 - x, y0 - y, x as u32 * 2 + 1, 1, color);
+        }
+    }
+    
     /// # 函数功能
     /// 绘制指定颜色的一条线段
     /// 
@@ -91,7 +214,47 @@ pub trait Renderer {
     /// - argx2: 终点x坐标
     /// - argy2: 终点y坐标
     /// - color:绘制颜色
-    fn line(&mut self, argx1: i32, argy1: i32, argx2: i32, argy2: i32, color: Color) {}
+    /// TODO
+    fn line(&mut self, argx1: i32, argy1: i32, argx2: i32, argy2: i32, color: Color) {
+        let mut x = argx1;
+        let mut y = argy1;
+
+        let dx = if argx1 > argx2 {
+            argx1 - argx2
+        } else {
+            argx2 - argx1
+        };
+        let dy = if argy1 > argy2 {
+            argy1 - argy2
+        } else {
+            argy2 - argy1
+        };
+
+        let sx = if argx1 < argx2 { 1 } else { -1 };
+        let sy = if argy1 < argy2 { 1 } else { -1 };
+
+        let mut err = if dx > dy { dx } else { -dy } / 2;
+        let mut err_tolerance;
+
+        loop {
+            self.pixel(x, y, color);
+
+            if x == argx2 && y == argy2 {
+                break;
+            };
+
+            err_tolerance = 2 * err;
+
+            if err_tolerance > -dx {
+                err -= dy;
+                x += sx;
+            }
+            if err_tolerance < dy {
+                err += dx;
+                y += sy;
+            }
+        }
+    }
 
     /// # 函数功能
     /// 绘制指定颜色的若干线段（首尾相连）
@@ -220,7 +383,153 @@ pub trait Renderer {
         }
         return self.data()[p];
     }
-    #[allow(unused_variables)]
-    /// TODO
-    fn char(&mut self, x: i32, y: i32, c: char, color: Color) {}
+
+    /// # 函数功能
+    /// 在指定位置绘制字符
+    /// 
+    /// ## 参数
+    /// - x: x坐标
+    /// - y: y坐标
+    /// - c: 待绘制的字符
+    /// - color: 字符颜色
+    fn char(&mut self, x: i32, y: i32, c: char, color: Color) {
+        let mut offset = (c as usize) * 16;
+        for row in 0..16 {
+            let row_data = if offset < FONT_ASSET.len() {
+                FONT_ASSET[offset]
+            } else {
+                0
+            };
+
+            for col in 0..8 {
+                let pixel = (row_data >> (7 - col)) & 1;
+                if pixel > 0 {
+                    self.pixel(x + col, y + row, color);
+                }
+            }
+            offset += 1;
+        }
+    }
+
+    /// # 函数功能
+    /// 在指定位置绘制一幅图像至帧缓冲区
+    /// 
+    /// ## 参数
+    /// - start_x: 起始x坐标(左上角)
+    /// - start_y: 起始y坐标(左上角)
+    /// - w: 图像宽度
+    /// - h: 图像高度
+    /// - data: 图像数据
+    fn image(&mut self, start_x: i32, start_y: i32, w: u32, h: u32, data: &[Color]) {
+        match self.mode().get() {
+            RenderMode::Blend => self.image_fast(start_x, start_y, w, h, data),
+            RenderMode::Overwrite => self.image_opaque(start_x, start_y, w, h, data),
+        }
+    }
+    
+
+    /// # 函数功能
+    /// 从指定行开始绘制一幅图像至帧缓冲区
+    /// 
+    /// ## 参数
+    /// - start: 起始行数
+    /// - image_data: 图像帧缓冲数据
+    fn image_over(&mut self, start: i32, image_data: &[Color]) {
+        let start = start as usize * self.width() as usize;
+        let window_data = self.data_mut();
+        let stop = cmp::min(start + image_data.len(), window_data.len());
+        let end = cmp::min(image_data.len(), window_data.len() - start);
+
+        window_data[start..stop].copy_from_slice(&image_data[..end]);
+    }
+
+    ///Display an image using non transparent method
+    /// TODO 注释补充
+    #[inline(always)]
+    fn image_opaque(&mut self, start_x: i32, start_y: i32, w: u32, h: u32, image_data: &[Color]) {
+        let w = w as usize;
+        let mut h = h as usize;
+        let width = self.width() as usize;
+        let height = self.height() as usize;
+        let start_x = start_x as usize;
+        let start_y = start_y as usize;
+
+        //check boundaries
+        if start_x >= width || start_y >= height {
+            return;
+        }
+        if h + start_y > height {
+            h = height - start_y;
+        }
+        let window_data = self.data_mut();
+        let offset = start_y * width + start_x;
+        //copy image slices to window line by line
+        for l in 0..h {
+            let start = offset + l * width;
+            let mut stop = start + w;
+            let begin = l * w;
+            let mut end = begin + w;
+            //check boundaries
+            if start_x + w > width {
+                stop = (start_y + l + 1) * width - 1;
+                end = begin + stop - start;
+            }
+            window_data[start..stop].copy_from_slice(&image_data[begin..end]);
+        }
+    }
+
+    /// Speed improved, image can be outside of window boundary
+    /// TODO 注释补充
+    #[inline(always)]
+    fn image_fast(&mut self, start_x: i32, start_y: i32, w: u32, h: u32, image_data: &[Color]) {
+        let w = w as usize;
+        let h = h as usize;
+        let width = self.width() as usize;
+        let start_x = start_x as usize;
+        let start_y = start_y as usize;
+
+        //simply return if image is outside of window
+        if start_x >= width || start_y >= self.height() as usize {
+            return;
+        }
+        let window_data = self.data_mut();
+        let offset = start_y * width + start_x;
+
+        //copy image slices to window line by line
+        for l in 0..h {
+            let start = offset + l * width;
+            let mut stop = start + w;
+            let begin = l * w;
+            let end = begin + w;
+
+            //check boundaries
+            if start_x + w > width {
+                stop = (start_y + l + 1) * width;
+            }
+            let mut k = 0;
+            for i in begin..end {
+                if i < image_data.len() {
+                    let new = image_data[i].data;
+                    let alpha = (new >> 24) & 0xFF;
+                    if alpha > 0 && (start + k) < window_data.len() && (start + k) < stop {
+                        let old = &mut window_data[start + k].data;
+                        if alpha >= 255 {
+                            *old = new;
+                        } else {
+                            let n_alpha = 255 - alpha;
+                            let rb = ((n_alpha * (*old & 0x00FF00FF))
+                                + (alpha * (new & 0x00FF00FF)))
+                                >> 8;
+                            let ag = (n_alpha * ((*old & 0xFF00FF00) >> 8))
+                                + (alpha * (0x01000000 | ((new & 0x0000FF00) >> 8)));
+
+                            *old = (rb & 0x00FF00FF) | (ag & 0xFF00FF00);
+                        }
+                    }
+                    k += 1;
+                }
+            }
+        }
+    }
+    
 }
