@@ -5,7 +5,7 @@ use super::{
     graphicspath::{GraphicsPath, PointType},
 };
 
-static FONT_ASSET : &[u8] = include_bytes!("../font/unifont.font");
+static FONT_ASSET: &[u8] = include_bytes!("../font/unifont.font");
 
 /// 渲染模式: 混合/覆盖
 #[derive(Clone, Copy, Debug)]
@@ -144,7 +144,7 @@ pub trait Renderer {
             }
         }
     }
-    
+
     /// TODO 注释补充
     fn circle(&mut self, x0: i32, y0: i32, radius: i32, color: Color) {
         let mut x = radius.abs();
@@ -205,7 +205,7 @@ pub trait Renderer {
             self.rect(x0 - x, y0 - y, x as u32 * 2 + 1, 1, color);
         }
     }
-    
+
     /// # 函数功能
     /// 绘制指定颜色的一条线段
     ///
@@ -387,7 +387,7 @@ pub trait Renderer {
 
     /// # 函数功能
     /// 在指定位置绘制字符
-    /// 
+    ///
     /// ## 参数
     /// - x: x坐标
     /// - y: y坐标
@@ -414,7 +414,7 @@ pub trait Renderer {
 
     /// # 函数功能
     /// 在指定位置绘制一幅图像至帧缓冲区
-    /// 
+    ///
     /// ## 参数
     /// - start_x: 起始x坐标(左上角)
     /// - start_y: 起始y坐标(左上角)
@@ -427,11 +427,10 @@ pub trait Renderer {
             RenderMode::Overwrite => self.image_opaque(start_x, start_y, w, h, data),
         }
     }
-    
 
     /// # 函数功能
     /// 从指定行开始绘制一幅图像至帧缓冲区
-    /// 
+    ///
     /// ## 参数
     /// - start: 起始行数
     /// - image_data: 图像帧缓冲数据
@@ -532,5 +531,4 @@ pub trait Renderer {
             }
         }
     }
-    
 }

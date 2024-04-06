@@ -52,7 +52,10 @@ impl StarryServer {
     pub fn new(config: Rc<Config>, displays: Vec<Display>) {
         let mut cursors = BTreeMap::new();
         cursors.insert(CursorKind::None, Image::new(0, 0));
-        cursors.insert(CursorKind::Normal, Image::from_path(CURSOR_NORMAL).unwrap_or(Image::new(10, 10)));        
+        cursors.insert(
+            CursorKind::Normal,
+            Image::from_path(CURSOR_NORMAL).unwrap_or(Image::new(10, 10)),
+        );
         // cursors.insert(CursorKind::BottomLeftCorner, Image::from_path_scale(&config.bottom_left_corner, scale).unwrap_or(Image::new(0, 0)));
         // cursors.insert(CursorKind::BottomRightCorner, Image::from_path_scale(&config.bottom_right_corner, scale).unwrap_or(Image::new(0, 0)));
         // cursors.insert(CursorKind::BottomSide, Image::from_path_scale(&config.bottom_side, scale).unwrap_or(Image::new(0, 0)));

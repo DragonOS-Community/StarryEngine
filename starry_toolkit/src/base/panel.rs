@@ -1,7 +1,15 @@
+use std::{
+    cell::{Cell, RefCell},
+    sync::Arc,
+};
 
-use std::{cell::{Cell, RefCell}, sync::Arc};
-
-use starry_client::{base::{color::Color, renderer::{RenderMode, Renderer}}, window::Window};
+use starry_client::{
+    base::{
+        color::Color,
+        renderer::{RenderMode, Renderer},
+    },
+    window::Window,
+};
 
 use crate::widgets::Widget;
 
@@ -10,14 +18,12 @@ use super::rect::Rect;
 /// 面板渲染器
 pub struct PanelRenderer<'a> {
     /// 客户端窗口
-    window: & 'a mut Window,
+    window: &'a mut Window,
 }
 
 impl<'a> PanelRenderer<'a> {
-    pub fn new(window: &'a mut Window) -> Self{
-        PanelRenderer {
-            window,
-        }
+    pub fn new(window: &'a mut Window) -> Self {
+        PanelRenderer { window }
     }
 }
 
@@ -46,7 +52,7 @@ impl<'a> Renderer for PanelRenderer<'a> {
         &self.window.mode()
     }
 
-    // TODO 
+    // TODO
     // fn char(&mut self, x: i32, y: i32, c: char, color: Color) {
     // }
 }
@@ -70,9 +76,7 @@ pub struct Panel {
 
 impl Panel {
     pub fn new(rect: Rect, title: &str) -> Self {
-        Panel::from_window(
-            Window::new(rect.x, rect.y, rect.width, rect.height, title)
-        )
+        Panel::from_window(Window::new(rect.x, rect.y, rect.width, rect.height, title))
     }
 
     pub fn from_window(window: Window) -> Self {
@@ -172,5 +176,4 @@ impl Panel {
             self.draw_widget(renderer, child);
         }
     }
-
 }
