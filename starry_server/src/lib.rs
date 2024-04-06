@@ -1,6 +1,6 @@
 pub mod base;
-pub mod core;
 pub mod config;
+pub mod core;
 
 extern crate bitflags;
 extern crate resize;

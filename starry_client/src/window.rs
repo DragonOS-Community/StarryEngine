@@ -1,6 +1,13 @@
-use std::{cell::Cell, fs::File, io::{Seek, SeekFrom, Write}};
+use std::{
+    cell::Cell,
+    fs::File,
+    io::{Seek, SeekFrom, Write},
+};
 
-use crate::base::{color::Color, renderer::{RenderMode, Renderer}};
+use crate::base::{
+    color::Color,
+    renderer::{RenderMode, Renderer},
+};
 
 // TODO: 读帧缓冲设备属性
 /// 屏幕宽度
@@ -50,7 +57,7 @@ impl Renderer for Window {
         self.data_opt.as_ref().unwrap()
     }
 
-    fn data_mut(&mut self) -> &mut [Color]{
+    fn data_mut(&mut self) -> &mut [Color] {
         self.data_opt.as_mut().unwrap()
     }
 
@@ -70,7 +77,7 @@ impl Renderer for Window {
     }
 
     fn mode(&self) -> &Cell<RenderMode> {
-        &self.mode    
+        &self.mode
     }
 }
 
@@ -88,11 +95,12 @@ impl Window {
             resizable: false,
             mode: Cell::new(RenderMode::Blend),
             // file_opt: None,
-            data_opt: Some(vec!(Color::rgb(0, 0, 0); (w * h) as usize).into_boxed_slice()),
+            data_opt: Some(vec![Color::rgb(0, 0, 0); (w * h) as usize].into_boxed_slice()),
         }
 
-        // TODO: 与服务器通信 
+        // TODO: 与服务器通信
     }
+
 
     /// 返回窗口x坐标
     pub fn x(&self) -> i32 {
@@ -107,7 +115,6 @@ impl Window {
     /// 返回窗口标题
     pub fn title(&self) -> String {
         self.title.clone()
-    }
 
     /// 改变窗口的位置
     pub fn set_pos(&mut self, x: i32, y: i32) {

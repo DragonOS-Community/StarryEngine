@@ -32,7 +32,7 @@ pub struct InputManagerData {
 
 impl InputManager {
     /// 创建输入管理器
-    pub fn new(){
+    pub fn new() {
         let mut input_handlers = Vec::new();
         // TODO: 通过设备检测添加
         input_handlers.push(MouseInputHandler::new() as Box<dyn InputHandler>);
@@ -77,8 +77,8 @@ pub trait InputHandler {
         let mut buf: [u8; 1024] = [0; 1024];
         // TODO: 错误信息提示相应文件路径
         let count = self
-        .get_listening_file()
-        .read(&mut buf)
+            .get_listening_file()
+            .read(&mut buf)
             .expect("[Error] Fail to polling file");
         // println!("[Info] Input_Handler polling read {:?} bytes", count);
         for i in 0..count {

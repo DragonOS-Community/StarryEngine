@@ -1,4 +1,8 @@
-use std::{fs::File, io::{Seek, SeekFrom, Write}, sync::{Arc, RwLock}};
+use std::{
+    fs::File,
+    io::{Seek, SeekFrom, Write},
+    sync::{Arc, RwLock},
+};
 
 use starry_client::base::renderer::Renderer;
 
@@ -52,17 +56,16 @@ impl Compositor {
         let window_manager = window_manager().unwrap();
         let server = starry_server().unwrap();
         let cursor_rect = window_manager.cursor_rect();
-        
+
         // 对窗口排序
         window_manager.rezbuffer();
-        
+
         let mut window_manager_guard = window_manager.data.write().unwrap();
         let mut compositor_guard = self.data.write().unwrap();
         let mut server_guard = server.data.write().unwrap();
-        
+
         let mut total_redraw_rect_opt: Option<Rect> = None;
         for original_rect in compositor_guard.redraws.drain(..) {
-
             // 更新重绘的总矩形区域
             if !original_rect.is_empty() {
                 total_redraw_rect_opt = match total_redraw_rect_opt {
@@ -95,9 +98,7 @@ impl Compositor {
 
                 let cursor_intersect = rect.intersection(&cursor_rect);
                 if !cursor_intersect.is_empty() {
-                    if let Some(cursor) =
-                        cursors.get_mut(&window_manager_guard.cursor_i)
-                    {
+                    if let Some(cursor) = cursors.get_mut(&window_manager_guard.cursor_i) {
                         display.roi(&cursor_intersect).blend(&cursor.roi(
                             &cursor_intersect.offset(-cursor_rect.left(), -cursor_rect.top()),
                         ));
@@ -105,22 +106,30 @@ impl Compositor {
                 }
             }
         }
-        
+
         // println!("[Info] Compositor calculate total redraw rect done!");
 
-        // TODO 
+        // TODO
         let mut fb = &compositor_guard.fb_file;
-        
+
         if let Some(total_redraw_rect) = total_redraw_rect_opt {
             for display in server_guard.displays.iter_mut() {
                 let display_redraw = total_redraw_rect.intersection(&display.screen_rect());
                 if !display_redraw.is_empty() {
                     for y in 0..display_redraw.height() {
                         for x in 0..display_redraw.width() {
-                            let pixel = display.image.get_pixel(x + display_redraw.left() - display.x, y + display_redraw.top() - display.y);
-                            let offset = (((y + display_redraw.top()) * SCREEN_WIDTH as i32) + x + display_redraw.left()) * 4;
-                            fb.seek(SeekFrom::Start(offset as u64)).expect("Unable to seek framebuffer");
-                            fb.write_all(&pixel.to_bgra_bytes()).expect("Unable to write framebuffer");
+                            let pixel = display.image.get_pixel(
+                                x + display_redraw.left() - display.x,
+                                y + display_redraw.top() - display.y,
+                            );
+                            let offset = (((y + display_redraw.top()) * SCREEN_WIDTH as i32)
+                                + x
+                                + display_redraw.left())
+                                * 4;
+                            fb.seek(SeekFrom::Start(offset as u64))
+                                .expect("Unable to seek framebuffer");
+                            fb.write_all(&pixel.to_bgra_bytes())
+                                .expect("Unable to write framebuffer");
                         }
                     }
                 }

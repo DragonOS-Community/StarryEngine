@@ -1,6 +1,13 @@
-use std::{collections::BTreeMap, rc::Rc, sync::{Arc, RwLock}};
+use std::{
+    collections::BTreeMap,
+    rc::Rc,
+    sync::{Arc, RwLock},
+};
 
-use crate::{base::{display::Display, image::Image}, config::Config};
+use crate::{
+    base::{display::Display, image::Image},
+    config::Config,
+};
 
 use self::{
     compositor::{compositor, Compositor},
@@ -42,10 +49,11 @@ pub struct StarryServerData {
 
 impl StarryServer {
     /// 创建图形服务器
-    pub fn new(config: Rc<Config>, displays: Vec<Display>){
+    pub fn new(config: Rc<Config>, displays: Vec<Display>) {
         let mut cursors = BTreeMap::new();
         cursors.insert(CursorKind::None, Image::new(0, 0));
-        cursors.insert(CursorKind::Normal, Image::from_path(CURSOR_NORMAL).unwrap_or(Image::new(10, 10)));        // cursors.insert(CursorKind::BottomLeftCorner, Image::from_path_scale(&config.bottom_left_corner, scale).unwrap_or(Image::new(0, 0)));
+        cursors.insert(CursorKind::Normal, Image::from_path(CURSOR_NORMAL).unwrap_or(Image::new(10, 10)));        
+        // cursors.insert(CursorKind::BottomLeftCorner, Image::from_path_scale(&config.bottom_left_corner, scale).unwrap_or(Image::new(0, 0)));
         // cursors.insert(CursorKind::BottomRightCorner, Image::from_path_scale(&config.bottom_right_corner, scale).unwrap_or(Image::new(0, 0)));
         // cursors.insert(CursorKind::BottomSide, Image::from_path_scale(&config.bottom_side, scale).unwrap_or(Image::new(0, 0)));
         // cursors.insert(CursorKind::LeftSide, Image::from_path_scale(&config.left_side, scale).unwrap_or(Image::new(0, 0)));
@@ -58,7 +66,6 @@ impl StarryServer {
                 cursors: cursors,
             }),
         };
-
 
         unsafe {
             STARRY_SERVER = Some(Arc::new(server));
@@ -74,8 +81,16 @@ impl StarryServer {
         InputManager::new();
 
         // TODO 临时在此创建桌面窗口
-        window_manager().unwrap().window_new(0, 0, SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32, "", "".to_string(), DESKTOP_BG);
-        
+        window_manager().unwrap().window_new(
+            0,
+            0,
+            SCREEN_WIDTH as i32,
+            SCREEN_HEIGHT as i32,
+            "",
+            "".to_string(),
+            DESKTOP_BG,
+        );
+
         // println!("[Init] Starry_Server start main loop!");
         loop {
             input_manager().unwrap().polling_all();

@@ -55,7 +55,6 @@ impl GraphicsPath {
 
             x = (self.x as f32) * uu;
             y = (self.y as f32) * uu;
-            
 
             x += 2.0 * u * t * (argx1 as f32);
             y += 2.0 * u * t * (argy1 as f32);
