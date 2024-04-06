@@ -67,10 +67,12 @@ impl Renderer for Window {
         for y in 0..self.height() as i32 {
             for x in 0..self.width() as i32 {
                 let pixel = self.get_pixel(x, y);
-                let offset =  (((y + self.y()) * SCREEN_WIDTH as i32) + x + self.x()) * 4;
+                let offset = (((y + self.y()) * SCREEN_WIDTH as i32) + x + self.x()) * 4;
                 // 写缓冲区
-                fb.seek(SeekFrom::Start(offset as u64)).expect("Unable to seek framebuffer");
-                fb.write_all(&pixel.to_bgra_bytes()).expect("Unable to write framebuffer");
+                fb.seek(SeekFrom::Start(offset as u64))
+                    .expect("Unable to seek framebuffer");
+                fb.write_all(&pixel.to_bgra_bytes())
+                    .expect("Unable to write framebuffer");
             }
         }
         true
@@ -101,7 +103,6 @@ impl Window {
         // TODO: 与服务器通信
     }
 
-
     /// 返回窗口x坐标
     pub fn x(&self) -> i32 {
         self.x
@@ -115,6 +116,7 @@ impl Window {
     /// 返回窗口标题
     pub fn title(&self) -> String {
         self.title.clone()
+    }
 
     /// 改变窗口的位置
     pub fn set_pos(&mut self, x: i32, y: i32) {
