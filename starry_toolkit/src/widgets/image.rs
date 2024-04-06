@@ -5,7 +5,10 @@ use std::{
 
 use starry_client::base::{color::Color, renderer::Renderer};
 
-use crate::{base::{point::Point, rect::Rect}, traits::place::Place};
+use crate::{
+    base::{point::Point, rect::Rect},
+    traits::place::Place,
+};
 
 use super::{HorizontalPlacement, VerticalPlacement, Widget};
 

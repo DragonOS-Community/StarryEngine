@@ -5,7 +5,10 @@ use std::{
 
 use starry_client::base::{color::Color, renderer::Renderer};
 
-use crate::{base::{point::Point, rect::Rect}, traits::{place::Place, text::Text}};
+use crate::{
+    base::{point::Point, rect::Rect},
+    traits::{place::Place, text::Text},
+};
 
 use super::{HorizontalPlacement, VerticalPlacement, Widget};
 
@@ -20,7 +23,7 @@ pub struct Label {
 }
 
 impl Label {
-        pub fn new() -> Arc<Self> {
+    pub fn new() -> Arc<Self> {
         Arc::new(Label {
             rect: Cell::new(Rect::default()),
             local_position: Cell::new(Point::new(0, 0)),
@@ -86,7 +89,12 @@ impl Widget for Label {
                 {
                     // 默认渲染白色字体
                     // TODO 应用主题(Theme)颜色
-                    renderer.char(current_rect.x, current_rect.y, char, Color::rgb(255, 255, 255));
+                    renderer.char(
+                        current_rect.x,
+                        current_rect.y,
+                        char,
+                        Color::rgb(255, 255, 255),
+                    );
                 }
                 current_rect.x += 8;
             }
