@@ -3,10 +3,11 @@ use std::{
     cmp,
     fs::File,
     io::{Seek, SeekFrom, Write},
-    mem, ptr,
+    mem, ptr, slice,
 };
 
 use image::GenericImageView;
+use resize::Type;
 use starry_client::base::{
     color::Color,
     renderer::{RenderMode, Renderer},
@@ -270,7 +271,7 @@ impl Image {
         }
     }
 
-    pub fn from_path_scale(path: &[u8]) -> Option<Self> {
+    pub fn from_path(path: &[u8]) -> Option<Self> {
         if let Ok(mut img) = image::load_from_memory(path) {
             // let img = img.resize(20, 20, image::imageops::FilterType::Gaussian);
 
@@ -363,6 +364,27 @@ impl Image {
             }
         }
     }
+
+    /// 改变图像大小
+    pub fn resize(&self, w: u32, h: u32, resize_type: Type) -> Self {
+        let mut dst_color = vec![Color { data: 0 }; w as usize * h as usize].into_boxed_slice();
+
+        let src = unsafe {
+            slice::from_raw_parts(self.data.as_ptr() as *const u8, self.data.len() * 4)
+        };
+
+        let mut dst = unsafe {
+            slice::from_raw_parts_mut(dst_color.as_mut_ptr() as *mut u8, dst_color.len() * 4)
+        };
+
+        let mut resizer = resize::new(self.w as usize, self.h as usize,
+                                      w as usize, h as usize,
+                                      resize::Pixel::RGBA, resize_type);
+        resizer.resize(&src, &mut dst);
+
+        Image::from_data(w as i32, h as i32, dst_color)
+    }
+    
 }
 
 impl Renderer for Image {
