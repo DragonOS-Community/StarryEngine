@@ -7,6 +7,7 @@ use super::{
 
 static FONT_ASSET : &[u8] = include_bytes!("../font/unifont.font");
 
+/// 渲染模式: 混合/覆盖
 #[derive(Clone, Copy, Debug)]
 pub enum RenderMode {
     /// 颜色混合
@@ -15,7 +16,7 @@ pub enum RenderMode {
     Overwrite,
 }
 
-/// 用于进行渲染
+/// 可渲染对象需要实现的特性
 pub trait Renderer {
     /// 获取渲染窗口宽度
     fn width(&self) -> u32;
@@ -29,7 +30,7 @@ pub trait Renderer {
     /// 获取可变帧缓存数据
     fn data_mut(&mut self) -> &mut [Color];
 
-    /// 同步数据
+    /// 同步渲染数据
     fn sync(&mut self) -> bool;
 
     /// 获取/设置渲染模式
