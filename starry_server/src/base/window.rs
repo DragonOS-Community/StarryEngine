@@ -15,8 +15,8 @@ pub enum WindowZOrderMode {
     Front,
 }
 
+/// 服务端的窗口类，与客户端的窗口类一一对应    
 #[allow(dead_code)]
-/// 窗口对象
 pub struct Window {
     /// 窗口左上角x坐标
     pub x: i32,
@@ -56,7 +56,7 @@ impl Window {
             title: String::new(),
             transparent: false,
             zorder: WindowZOrderMode::Normal,
-            image: Image::from_path_scale(image_path)
+            image: Image::from_path(image_path)
                 .unwrap_or(Image::new(SCREEN_HEIGHT as i32, SCREEN_HEIGHT as i32)),
             events: Vec::new(),
         }

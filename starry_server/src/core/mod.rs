@@ -18,8 +18,8 @@ pub const SCREEN_WIDTH: usize = 1440;
 #[allow(dead_code)]
 pub const SCREEN_HEIGHT: usize = 900;
 
-static DESKTOP_BG: &[u8] = include_bytes!("../desktop_bg.png");
-static CURSOR_NORMAL: &[u8] = include_bytes!("../cursor_normal.png");
+static DESKTOP_BG: &[u8] = include_bytes!("../asset/desktop_bg.png");
+static CURSOR_NORMAL: &[u8] = include_bytes!("../asset/cursor_normal.png");
 
 static mut STARRY_SERVER: Option<Arc<StarryServer>> = None;
 
@@ -45,7 +45,7 @@ impl StarryServer {
     pub fn new(config: Rc<Config>, displays: Vec<Display>){
         let mut cursors = BTreeMap::new();
         cursors.insert(CursorKind::None, Image::new(0, 0));
-        cursors.insert(CursorKind::Normal, Image::from_path_scale(CURSOR_NORMAL).unwrap_or(Image::new(10, 10)));        // cursors.insert(CursorKind::BottomLeftCorner, Image::from_path_scale(&config.bottom_left_corner, scale).unwrap_or(Image::new(0, 0)));
+        cursors.insert(CursorKind::Normal, Image::from_path(CURSOR_NORMAL).unwrap_or(Image::new(10, 10)));        // cursors.insert(CursorKind::BottomLeftCorner, Image::from_path_scale(&config.bottom_left_corner, scale).unwrap_or(Image::new(0, 0)));
         // cursors.insert(CursorKind::BottomRightCorner, Image::from_path_scale(&config.bottom_right_corner, scale).unwrap_or(Image::new(0, 0)));
         // cursors.insert(CursorKind::BottomSide, Image::from_path_scale(&config.bottom_side, scale).unwrap_or(Image::new(0, 0)));
         // cursors.insert(CursorKind::LeftSide, Image::from_path_scale(&config.left_side, scale).unwrap_or(Image::new(0, 0)));

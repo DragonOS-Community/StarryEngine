@@ -2,5 +2,6 @@
     "rust-analyzer.linkedProjects": [
         "./starry_client/Cargo.toml",
         "./starry_server/Cargo.toml",
+        "./starry_toolkit/Cargo.toml",
     ],
 }
