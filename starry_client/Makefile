@@ -1,6 +1,3 @@
-TOOLCHAIN="+nightly-2023-08-15-x86_64-unknown-linux-gnu"
-RUSTFLAGS+=""
-
 ifdef DADK_CURRENT_BUILD_DIR
 # 如果是在dadk中编译，那么安装到dadk的安装目录中
 	INSTALL_DIR = $(DADK_CURRENT_BUILD_DIR)
@@ -19,38 +16,38 @@ else
 endif
 
 run:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) run --target $(RUST_TARGET)
+	cargo run --target $(RUST_TARGET)
 
 build:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) build --target $(RUST_TARGET)
+	cargo build --target $(RUST_TARGET)
 
 clean:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) clean --target $(RUST_TARGET)
+	cargo clean --target $(RUST_TARGET)
 
 test:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) test --target $(RUST_TARGET)
+	cargo test --target $(RUST_TARGET)
 
 doc:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) doc --target $(RUST_TARGET)
+	cargo doc --target $(RUST_TARGET)
 
 fmt:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) fmt
+	cargo fmt
 
 fmt-check:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) fmt --check
+	cargo fmt --check
 
 run-release:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) run --target $(RUST_TARGET) --release
+	cargo run --target $(RUST_TARGET) --release
 
 build-release:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) build --target $(RUST_TARGET) --release
+	cargo build --target $(RUST_TARGET) --release
 
 clean-release:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) clean --target $(RUST_TARGET) --release
+	cargo clean --target $(RUST_TARGET) --release
 
 test-release:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) test --target $(RUST_TARGET) --release
+	cargo test --target $(RUST_TARGET) --release
 
 .PHONY: install
 install:
-	RUSTFLAGS=$(RUSTFLAGS) cargo $(TOOLCHAIN) install --target $(RUST_TARGET) --path . --no-track --root $(INSTALL_DIR) --force
+	cargo install --target $(RUST_TARGET) --path . --no-track --root $(INSTALL_DIR) --force
