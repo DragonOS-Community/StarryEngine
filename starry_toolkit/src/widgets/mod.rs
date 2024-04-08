@@ -68,7 +68,7 @@ pub trait Widget: Any {
     }
 
     /// 渲染组件
-    fn draw(&self, renderer: &mut dyn Renderer);
+    fn draw(&self, renderer: &mut dyn Renderer, focused: bool);
 
     /// 更新组件状态
     fn update(&self) {}

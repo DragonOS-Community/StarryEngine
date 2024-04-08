@@ -1,7 +1,7 @@
 use crate::widgets::{HorizontalPlacement, VerticalPlacement, Widget};
 
-pub trait Place: Sized + Widget {
-    fn position(&self, x: i32, y: i32) -> &Self {
+pub trait Transform: Sized + Widget {
+    fn reposition(&self, x: i32, y: i32) -> &Self {
         let mut position = self.local_position().get();
         let mut rect = self.rect().get();
         position.x = x;
@@ -14,7 +14,7 @@ pub trait Place: Sized + Widget {
         self
     }
 
-    fn size(&self, width: u32, height: u32) -> &Self {
+    fn resize(&self, width: u32, height: u32) -> &Self {
         let mut rect = self.rect().get();
         rect.width = width;
         rect.height = height;

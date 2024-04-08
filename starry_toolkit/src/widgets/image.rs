@@ -7,7 +7,7 @@ use starry_client::base::{color::Color, renderer::Renderer};
 
 use crate::{
     base::{point::Point, rect::Rect},
-    traits::place::Place,
+    traits::transform::Transform,
 };
 
 use super::{HorizontalPlacement, VerticalPlacement, Widget};
@@ -53,7 +53,7 @@ impl Image {
     }
 }
 
-impl Place for Image {}
+impl Transform for Image {}
 
 impl Widget for Image {
     fn name(&self) -> &str {
@@ -80,7 +80,7 @@ impl Widget for Image {
         &self.children
     }
 
-    fn draw(&self, renderer: &mut dyn Renderer) {
+    fn draw(&self, renderer: &mut dyn Renderer, _focused: bool) {
         let rect = self.rect.get();
         let image = self.image.borrow();
         renderer.image(rect.x, rect.y, rect.width, rect.height, image.data());
