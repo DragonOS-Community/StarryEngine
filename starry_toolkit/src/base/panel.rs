@@ -11,7 +11,7 @@ use starry_client::{
     window::Window,
 };
 
-use crate::widgets::Widget;
+use crate::{traits::focus::Focus, widgets::Widget};
 
 use super::rect::Rect;
 
@@ -72,6 +72,8 @@ pub struct Panel {
     pub widgets: RefCell<Vec<Arc<dyn Widget>>>,
     /// 窗口是否打开
     pub running: Cell<bool>,
+    /// 当前聚焦的窗口
+    pub focused_widget: RefCell<Option<Arc<dyn Widget>>>,
 }
 
 impl Panel {
@@ -84,6 +86,7 @@ impl Panel {
             window: RefCell::new(window),
             widgets: RefCell::new(Vec::new()),
             running: Cell::new(true),
+            focused_widget: RefCell::new(None),
         }
     }
 
@@ -169,11 +172,17 @@ impl Panel {
     /// 渲染单个组件
     pub fn draw_widget(&self, renderer: &mut dyn Renderer, widget: &Arc<dyn Widget>) {
         widget.update();
-        widget.draw(renderer);
+        widget.draw(renderer, self.is_focused(widget));
 
         // 渲染子组件
         for child in widget.children().borrow().iter() {
             self.draw_widget(renderer, child);
         }
+    }
+}
+
+impl Focus for Panel {
+    fn focused_widget(&self) -> RefCell<Option<Arc<dyn Widget>>> {
+        self.focused_widget.clone()
     }
 }

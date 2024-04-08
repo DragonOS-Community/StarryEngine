@@ -7,7 +7,7 @@ use starry_client::base::{color::Color, renderer::Renderer};
 
 use crate::{
     base::{point::Point, rect::Rect},
-    traits::{place::Place, text::Text},
+    traits::{text::Text, transform::Transform},
 };
 
 use super::{HorizontalPlacement, VerticalPlacement, Widget};
@@ -37,14 +37,14 @@ impl Label {
 
     fn adjust_size(&self) {
         let text = self.text.borrow();
-        self.size(
+        self.resize(
             text.len() as u32 * 8 + 2 * self.text_offset.get().x as u32,
             16 + 2 * self.text_offset.get().y as u32,
         );
     }
 }
 
-impl Place for Label {}
+impl Transform for Label {}
 
 impl Widget for Label {
     fn name(&self) -> &str {
@@ -71,7 +71,7 @@ impl Widget for Label {
         &self.children
     }
 
-    fn draw(&self, renderer: &mut dyn Renderer) {
+    fn draw(&self, renderer: &mut dyn Renderer, _focused: bool) {
         let origin_rect = self.rect().get();
         let mut current_rect = self.rect().get(); // 当前字符渲染矩形
         let origin_x = origin_rect.x;
