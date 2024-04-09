@@ -73,6 +73,59 @@ pub trait Widget: Any {
     /// 更新组件状态
     fn update(&self) {}
 
-    /// TODO
-    fn arrange(&self) {}
+    /// 重新排布子对象
+    /// TODO 增加margin字段后相应处理
+    fn arrange(&self) {
+        let parent_rect = self.rect().get();
+
+        for child in self.children().borrow_mut().iter() {
+            let mut child_rect = child.rect().get();
+            let child_position = child.local_position().get();
+
+            match child.vertical_placement().get() {
+                VerticalPlacement::Absolute => {
+                    child_rect.y = parent_rect.y + child_position.y;
+                }
+                VerticalPlacement::Stretch => {
+                    child_rect.height = parent_rect.height;
+                    child_rect.y = parent_rect.y;
+                }
+                VerticalPlacement::Top => {
+                    child_rect.y = parent_rect.y;
+                }
+                VerticalPlacement::Center => {
+                    child_rect.y = parent_rect.y + parent_rect.height as i32 / 2
+                        - child_rect.height as i32 / 2;
+                }
+                VerticalPlacement::Bottom => {
+                    child_rect.y =
+                        parent_rect.y + parent_rect.height as i32 - child_rect.height as i32;
+                }
+            }
+
+            match child.horizontal_placement().get() {
+                HorizontalPlacement::Absolute => {
+                    child_rect.x = parent_rect.x + child_position.x;
+                }
+                HorizontalPlacement::Stretch => {
+                    child_rect.width = parent_rect.width;
+                    child_rect.x = parent_rect.x;
+                }
+                HorizontalPlacement::Left => {
+                    child_rect.x = parent_rect.x;
+                }
+                HorizontalPlacement::Center => {
+                    child_rect.x =
+                        parent_rect.x + parent_rect.width as i32 / 2 - child_rect.width as i32 / 2;
+                }
+                HorizontalPlacement::Right => {
+                    child_rect.x =
+                        parent_rect.x + parent_rect.width as i32 - child_rect.width as i32;
+                }
+            }
+
+            child.rect().set(child_rect);
+            child.arrange();
+        }
+    }
 }

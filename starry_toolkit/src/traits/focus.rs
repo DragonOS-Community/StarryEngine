@@ -7,10 +7,7 @@ pub trait Focus {
     fn focused_widget(&self) -> RefCell<Option<Arc<dyn Widget>>>;
 
     /// 聚焦于给定Widget
-    fn focused(&self, widget: &Arc<dyn Widget>) {
-        let focused = self.focused_widget();
-        (*focused.borrow_mut()) = Some(widget.clone());
-    }
+    fn focus(&self, widget: &Arc<dyn Widget>);
 
     /// 判断当前是否聚焦于给定Widget
     fn is_focused(&self, widget: &Arc<dyn Widget>) -> bool {

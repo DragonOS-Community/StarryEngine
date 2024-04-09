@@ -89,12 +89,7 @@ impl Widget for Label {
                 {
                     // 默认渲染白色字体
                     // TODO 应用主题(Theme)颜色
-                    renderer.char(
-                        current_rect.x,
-                        current_rect.y,
-                        char,
-                        Color::rgb(255, 255, 255),
-                    );
+                    renderer.char(current_rect.x, current_rect.y, char, Color::rgb(0, 0, 0));
                 }
                 current_rect.x += 8;
             }

@@ -6,8 +6,6 @@ use starry_toolkit::{
     widgets::label::Label,
 };
 
-// const IMAGE_PATH: &[u8] = include_bytes!("./asset/desktop_bg.png");
-
 fn main() {
     let panel = Panel::new(
         Rect::new(0, 0, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32),
