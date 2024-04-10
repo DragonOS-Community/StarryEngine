@@ -25,8 +25,8 @@ pub const SCREEN_WIDTH: usize = 1440;
 #[allow(dead_code)]
 pub const SCREEN_HEIGHT: usize = 900;
 
-static DESKTOP_BG: &[u8] = include_bytes!("../asset/desktop_bg.png");
-static CURSOR_NORMAL: &[u8] = include_bytes!("../asset/cursor_normal.png");
+static DESKTOP_BG: &[u8] = include_bytes!("../resource/desktop_bg.png");
+static CURSOR_NORMAL: &[u8] = include_bytes!("../resource/cursor_normal.png");
 
 static mut STARRY_SERVER: Option<Arc<StarryServer>> = None;
 

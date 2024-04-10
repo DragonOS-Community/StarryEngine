@@ -185,4 +185,8 @@ impl Focus for Panel {
     fn focused_widget(&self) -> RefCell<Option<Arc<dyn Widget>>> {
         self.focused_widget.clone()
     }
+
+    fn focus(&self, widget: &Arc<dyn Widget>) {
+        (*self.focused_widget.borrow_mut()) = Some(widget.clone());
+    }
 }

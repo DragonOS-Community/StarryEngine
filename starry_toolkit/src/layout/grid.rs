@@ -29,9 +29,11 @@ pub struct Grid {
     /// 当前列数
     current_column: Cell<usize>,
     /// 元素字典
-    elements: RefCell<BTreeMap<(usize, usize), Arc<dyn Widget>>>,
+    pub elements: RefCell<BTreeMap<(usize, usize), Arc<dyn Widget>>>,
     /// 当前选中的元素id(行列号)
-    focused_id: Cell<Option<(usize, usize)>>,
+    pub focused_id: Cell<Option<(usize, usize)>>,
+    /// 当前聚焦的widget
+    pub focused_widget: RefCell<Option<Arc<dyn Widget>>>,
 }
 
 impl Grid {
@@ -49,6 +51,7 @@ impl Grid {
             current_column: Cell::new(0),
             elements: RefCell::new(BTreeMap::new()),
             focused_id: Cell::new(None),
+            focused_widget: RefCell::new(None),
         })
     }
 
@@ -206,12 +209,10 @@ impl Transform for Grid {
 
 impl Focus for Grid {
     fn focused_widget(&self) -> RefCell<Option<Arc<dyn Widget>>> {
-        if let Some((row, column)) = self.focused_id.get() {
-            if let Some(widget) = self.elements.borrow().get(&(row, column)) {
-                return RefCell::new(Some((*widget).clone()));
-            }
-        }
+        self.focused_widget.clone()
+    }
 
-        return RefCell::new(None);
+    fn focus(&self, widget: &Arc<dyn Widget>) {
+        (*self.focused_widget.borrow_mut()) = Some(widget.clone());
     }
 }

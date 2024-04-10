@@ -12,7 +12,7 @@ use crate::{
 
 use super::{HorizontalPlacement, VerticalPlacement, Widget};
 
-use crate::starry_server::base::image::Image as ImageAsset;
+use crate::starry_server::base::image::Image as ImageResource;
 
 pub struct Image {
     pub rect: Cell<Rect>,
@@ -21,19 +21,23 @@ pub struct Image {
     horizontal_placement: Cell<HorizontalPlacement>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
     /// 图像源数据
-    pub image: RefCell<ImageAsset>,
+    pub image: RefCell<ImageResource>,
 }
 
 impl Image {
     pub fn new(width: u32, height: u32) -> Arc<Self> {
-        Self::from_image(ImageAsset::new(width as i32, height as i32))
+        Self::from_image(ImageResource::new(width as i32, height as i32))
     }
 
     pub fn from_color(width: u32, height: u32, color: Color) -> Arc<Self> {
-        Self::from_image(ImageAsset::from_color(width as i32, height as i32, color))
+        Self::from_image(ImageResource::from_color(
+            width as i32,
+            height as i32,
+            color,
+        ))
     }
 
-    pub fn from_image(image: ImageAsset) -> Arc<Self> {
+    pub fn from_image(image: ImageResource) -> Arc<Self> {
         Arc::new(Image {
             rect: Cell::new(Rect::new(0, 0, image.width() as u32, image.height() as u32)),
             local_position: Cell::new(Point::new(0, 0)),
@@ -45,7 +49,7 @@ impl Image {
     }
 
     pub fn from_path(path: &[u8]) -> Option<Arc<Self>> {
-        if let Some(image) = ImageAsset::from_path(path) {
+        if let Some(image) = ImageResource::from_path(path) {
             Some(Self::from_image(image))
         } else {
             None
