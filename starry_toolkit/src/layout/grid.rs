@@ -7,23 +7,32 @@ use std::{
 use starry_client::base::renderer::Renderer;
 
 use crate::{
-    base::{point::Point, rect::Rect},
-    traits::{focus::Focus, transform::Transform},
-    widgets::{HorizontalPlacement, VerticalPlacement, Widget},
+    base::{rect::Rect, vector2::Vector2},
+    traits::focus::Focus,
+    widgets::{PivotType, Widget},
 };
+
+/// 网格排列方式
+#[derive(PartialEq, Copy, Clone)]
+pub enum GridArrangeType {
+    /// 优先横向排列
+    Horizontal,
+    /// 优先纵向排列
+    Vertical,
+}
 
 pub struct Grid {
     pub rect: Cell<Rect>,
-    local_position: Cell<Point>,
-    vertical_placement: Cell<VerticalPlacement>,
-    horizontal_placement: Cell<HorizontalPlacement>,
+    pivot: Cell<PivotType>,
+    pivot_offset: Cell<Vector2>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
+    parent: RefCell<Option<Arc<dyn Widget>>>,
     /// x坐标间隔
     space_x: Cell<i32>,
     /// y坐标间隔
     space_y: Cell<i32>,
-    /// 每行的最大列数
-    max_columns: Cell<usize>,
+    /// 每行/列的最大元素数
+    upper_limit: Cell<usize>,
     /// 当前行数
     current_row: Cell<usize>,
     /// 当前列数
@@ -34,45 +43,78 @@ pub struct Grid {
     pub focused_id: Cell<Option<(usize, usize)>>,
     /// 当前聚焦的widget
     pub focused_widget: RefCell<Option<Arc<dyn Widget>>>,
+    /// 优先排列方式
+    arrange_type: Cell<GridArrangeType>,
 }
 
 impl Grid {
     pub fn new() -> Arc<Self> {
         Arc::new(Grid {
             rect: Cell::new(Rect::default()),
-            local_position: Cell::new(Point::new(0, 0)),
-            vertical_placement: Cell::new(VerticalPlacement::Absolute),
-            horizontal_placement: Cell::new(HorizontalPlacement::Absolute),
+            pivot: Cell::new(PivotType::TopLeft),
+            pivot_offset: Cell::new(Vector2::new(0, 0)),
             children: RefCell::new(vec![]),
+            parent: RefCell::new(None),
             space_x: Cell::new(0),
             space_y: Cell::new(0),
-            max_columns: Cell::new(0),
+            upper_limit: Cell::new(0),
             current_row: Cell::new(0),
             current_column: Cell::new(0),
             elements: RefCell::new(BTreeMap::new()),
             focused_id: Cell::new(None),
             focused_widget: RefCell::new(None),
+            arrange_type: Cell::new(GridArrangeType::Vertical),
         })
     }
 
-    /// 设置最大列数
-    pub fn set_max_columns(&self, columns: usize) -> &Self {
-        self.max_columns.set(columns);
+    /// 设置每行/列最大元素数量(取决于行/列优先排列)
+    pub fn set_upper_limit(&self, columns: usize) -> &Self {
+        self.upper_limit.set(columns);
+        self
+    }
+
+    pub fn set_arrange_type(&self, arrange_type: GridArrangeType) -> &Self {
+        self.arrange_type.set(arrange_type);
         self
     }
 
     pub fn add<T: Widget>(&self, element: &Arc<T>) {
-        if self.current_column.get() == self.max_columns.get() {
-            self.current_row.set(self.current_row.get() + 1);
-            self.current_column.set(0);
-        }
-
+        self.find_next_slot();
         self.elements.borrow_mut().insert(
             (self.current_row.get(), self.current_column.get()),
             element.clone(),
         );
-        self.current_column.set(self.current_column.get() + 1);
-        self.arrange(false);
+        self.move_index();
+        self.arrange_elements(false);
+    }
+
+    /// 找到下一个可放置元素的位置
+    fn find_next_slot(&self) {
+        let elements = self.elements.borrow();
+        while elements.contains_key(&(self.current_row.get(), self.current_column.get())) {
+            self.move_index();
+        }
+    }
+
+    fn move_index(&self) {
+        match self.arrange_type.get() {
+            GridArrangeType::Horizontal => {
+                self.current_column.set(self.current_column.get() + 1);
+
+                if self.current_column.get() == self.upper_limit.get() {
+                    self.current_row.set(self.current_row.get() + 1);
+                    self.current_column.set(0);
+                }
+            }
+            GridArrangeType::Vertical => {
+                self.current_row.set(self.current_row.get() + 1);
+
+                if self.current_row.get() == self.upper_limit.get() {
+                    self.current_column.set(self.current_column.get() + 1);
+                    self.current_row.set(0);
+                }
+            }
+        }
     }
 
     pub fn insert<T: Widget>(&self, column: usize, row: usize, element: &Arc<T>) {
@@ -80,7 +122,7 @@ impl Grid {
             .borrow_mut()
             .insert((row, column), element.clone());
 
-        self.arrange(false);
+        self.arrange_elements(false);
     }
 
     pub fn clear(&self) {
@@ -97,10 +139,17 @@ impl Grid {
         self
     }
 
-    pub fn arrange(&self, resize_children: bool) {
+    // TODO 注释补充
+    pub fn arrange_elements(&self, resize_children: bool) {
+        if self.elements.borrow().is_empty() {
+            return;
+        }
+
+        self.arrange_self();
+
         let mut cols = Vec::new();
         let mut rows = Vec::new();
-        for (&(col, row), entry) in self.elements.borrow().iter() {
+        for (&(row, col), entry) in self.elements.borrow().iter() {
             while col >= cols.len() {
                 cols.push(Rect::default());
             }
@@ -122,33 +171,33 @@ impl Grid {
             }
         }
 
-        let rect = self.rect.get();
         let space_x = self.space_x.get();
         let space_y = self.space_y.get();
 
-        let mut x = rect.x;
+        let mut x = 0;
         for col in cols.iter_mut() {
             col.x = x;
             x += col.width as i32 + space_x;
         }
 
-        let mut y = rect.y;
+        let mut y = 0;
         for row in rows.iter_mut() {
             row.y = y;
             y += row.height as i32 + space_y;
         }
 
-        for (&(col, row), child) in self.elements.borrow().iter() {
-            let mut rect = child.rect().get();
-            rect.x = cols[col].x;
-            rect.y = rows[row].y;
-            if resize_children {
-                rect.width = cols[col].width;
-                rect.height = rows[row].height;
-            }
-            child.rect().set(rect);
+        let grid_width = cols.len() as i32 * (cols[0].width as i32 + space_x) - space_x;
+        let grid_height = rows.len() as i32 * (rows[0].width as i32 + space_y) - space_y;
+        self.resize(grid_width as u32, grid_height as u32);
 
-            child.arrange();
+        for (&(row, col), child) in self.elements.borrow().iter() {
+            child.set_pivot_type(PivotType::TopLeft);
+            child.set_pivot_offset(Vector2::new(cols[col].x, rows[row].y));
+            if resize_children {
+                child.resize(cols[col].width, rows[row].height);
+            }
+
+            child.arrange_all();
         }
     }
 }
@@ -162,16 +211,16 @@ impl Widget for Grid {
         &self.rect
     }
 
-    fn local_position(&self) -> &Cell<Point> {
-        &self.local_position
+    fn pivot(&self) -> &Cell<PivotType> {
+        &self.pivot
     }
 
-    fn vertical_placement(&self) -> &Cell<VerticalPlacement> {
-        &self.vertical_placement
+    fn pivot_offset(&self) -> &Cell<Vector2> {
+        &self.pivot_offset
     }
 
-    fn horizontal_placement(&self) -> &Cell<HorizontalPlacement> {
-        &self.horizontal_placement
+    fn parent(&self) -> &RefCell<Option<Arc<dyn Widget>>> {
+        &self.parent
     }
 
     fn children(&self) -> &RefCell<Vec<Arc<dyn Widget>>> {
@@ -191,19 +240,6 @@ impl Widget for Grid {
         for (&(_col, _row), widget) in self.elements.borrow().iter() {
             draw_widget(widget, renderer, self.is_focused(widget));
         }
-    }
-}
-
-impl Transform for Grid {
-    fn reposition(&self, x: i32, y: i32) -> &Self {
-        let mut rect = self.rect().get();
-        rect.x = x;
-        rect.y = y;
-        self.rect.set(rect);
-
-        self.arrange(false);
-
-        self
     }
 }
 

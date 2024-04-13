@@ -77,8 +77,15 @@ pub struct Panel {
 }
 
 impl Panel {
-    pub fn new(rect: Rect, title: &str) -> Self {
-        Panel::from_window(Window::new(rect.x, rect.y, rect.width, rect.height, title))
+    pub fn new(rect: Rect, title: &str, color: Color) -> Self {
+        Panel::from_window(Window::new(
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            title,
+            color,
+        ))
     }
 
     pub fn from_window(window: Window) -> Self {

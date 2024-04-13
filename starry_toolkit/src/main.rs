@@ -1,8 +1,9 @@
+use starry_client::base::color::Color;
 use starry_server::core::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use starry_toolkit::{
     base::{panel::Panel, rect::Rect},
     layout::grid::Grid,
-    traits::{text::Text, transform::Transform},
+    traits::text::Text,
     widgets::label::Label,
 };
 
@@ -10,21 +11,21 @@ fn main() {
     let panel = Panel::new(
         Rect::new(0, 0, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32),
         "Title",
+        Color::rgb(255, 255, 255),
     );
 
     let label1 = Label::new();
-    label1.text("hello world");
+    label1.set_text("abc");
 
     let label2 = Label::new();
-    label2.text("hello world");
+    label2.set_text("....");
 
     let label3 = Label::new();
-    label3.text("hello world");
+    label3.set_text("12.g");
 
     let grid = Grid::new();
     grid.set_space(10, 10);
-    grid.resize(500, 500);
-    grid.set_max_columns(2);
+    grid.set_upper_limit(2);
     grid.add(&label1);
     grid.add(&label2);
     grid.add(&label3);

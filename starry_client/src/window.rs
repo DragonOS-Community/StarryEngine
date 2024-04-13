@@ -86,7 +86,7 @@ impl Renderer for Window {
 #[allow(dead_code)]
 impl Window {
     /// TODO: 接收flags
-    pub fn new(x: i32, y: i32, w: u32, h: u32, title: &str) -> Self {
+    pub fn new(x: i32, y: i32, w: u32, h: u32, title: &str, color: Color) -> Self {
         Window {
             x: x,
             y: y,
@@ -97,7 +97,7 @@ impl Window {
             resizable: false,
             mode: Cell::new(RenderMode::Blend),
             // file_opt: None,
-            data_opt: Some(vec![Color::rgb(0, 0, 0); (w * h) as usize].into_boxed_slice()),
+            data_opt: Some(vec![color; (w * h) as usize].into_boxed_slice()),
         }
 
         // TODO: 与服务器通信

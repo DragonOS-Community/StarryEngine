@@ -1,4 +1,7 @@
+use starry_client::base::color::Color;
+
 pub trait Text {
-    fn text<S: Into<String>>(&self, text: S) -> &Self;
-    fn text_offset(&self, x: i32, y: i32) -> &Self;
+    fn set_text<S: Into<String>>(&self, text: S) -> &Self;
+
+    fn set_text_color(&self, color: Color) -> &Self;
 }

@@ -19,6 +19,7 @@ pub mod compositor;
 pub mod input;
 pub mod window_manager;
 
+// TODO: 读帧缓冲设备属性
 /// 屏幕宽度
 pub const SCREEN_WIDTH: usize = 1440;
 /// 屏幕高度

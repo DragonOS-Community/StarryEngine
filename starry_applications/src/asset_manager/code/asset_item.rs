@@ -1,13 +1,18 @@
 use std::{
     cell::{Cell, RefCell},
+    str::FromStr,
     sync::Arc,
 };
 
 use starry_client::base::{color::Color, renderer::Renderer};
 use starry_toolkit::{
-    base::{point::Point, rect::Rect},
-    traits::{text::Text, transform::Transform},
-    widgets::{image::Image, label::Label, HorizontalPlacement, VerticalPlacement, Widget},
+    base::{rect::Rect, vector2::Vector2},
+    traits::text::Text,
+    widgets::{
+        image::Image,
+        label::{Label, LabelOverflowType},
+        widget_add_child, PivotType, Widget,
+    },
 };
 
 use crate::starry_server::base::image::Image as ImageResource;
@@ -15,38 +20,36 @@ use crate::starry_server::base::image::Image as ImageResource;
 const FILE_ICON_PATH: &[u8] = include_bytes!("../resource/file_icon.png");
 const DIR_ICON_PATH: &[u8] = include_bytes!("../resource/dir_icon.png");
 
-pub enum AssetType {
-    Folder,
-    File,
-}
-
 pub struct AssetItem {
     pub rect: Cell<Rect>,
-    local_position: Cell<Point>,
-    vertical_placement: Cell<VerticalPlacement>,
-    horizontal_placement: Cell<HorizontalPlacement>,
+    pivot: Cell<PivotType>,
+    pivot_offset: Cell<Vector2>,
+    parent: RefCell<Option<Arc<dyn Widget>>>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
     /// 缓存值
     cache_focused: Cell<bool>,
+    _file_path: RefCell<String>,
 }
 
 impl AssetItem {
     pub const ITEM_WIDTH: u32 = 144;
     pub const ITEM_HEIGHT: u32 = 144;
 
-    pub fn new(file_name: &str, is_dir: bool) -> Self {
-        let item = AssetItem {
+    pub fn new(file_name: &str, is_dir: bool) -> Arc<Self> {
+        let item = Arc::new(AssetItem {
             rect: Cell::new(Rect::new(0, 0, Self::ITEM_WIDTH, Self::ITEM_HEIGHT)),
-            local_position: Cell::new(Point::new(0, 0)),
-            vertical_placement: Cell::new(VerticalPlacement::Absolute),
-            horizontal_placement: Cell::new(HorizontalPlacement::Absolute),
+            pivot: Cell::new(PivotType::TopLeft),
+            pivot_offset: Cell::new(Vector2::new(0, 0)),
+            parent: RefCell::new(None),
             children: RefCell::new(Vec::new()),
             cache_focused: Cell::new(false),
-        };
+            _file_path: RefCell::new(String::from_str(file_name).unwrap()),
+        });
 
         // 背景Image
-        let bg = Image::from_color(160, 160, Color::rgba(0, 0, 0, 0));
-        item.add_child(bg);
+        let bg = Image::from_color(Self::ITEM_WIDTH, Self::ITEM_HEIGHT, Color::rgba(0, 0, 0, 0));
+        bg.set_pivot_type(PivotType::Center);
+        widget_add_child(item.clone(), bg.clone());
 
         // 文件图标Image
         if let Some(icon) = match is_dir {
@@ -54,23 +57,22 @@ impl AssetItem {
             false => ImageResource::from_path(FILE_ICON_PATH),
         } {
             let icon = Image::from_image(icon);
-            icon.horizontal_placement().set(HorizontalPlacement::Center);
-            icon.vertical_placement().set(VerticalPlacement::Top);
-            item.add_child(icon);
+            icon.set_pivot_type(PivotType::Top);
+            widget_add_child(item.clone(), icon.clone());
         }
 
         // 文件名Label
         let name = Label::new();
-        name.text(file_name);
-        name.horizontal_placement().set(HorizontalPlacement::Center);
-        name.vertical_placement().set(VerticalPlacement::Bottom);
-        item.add_child(name);
+        name.set_adapt_type(LabelOverflowType::Omit);
+        name.resize(Self::ITEM_WIDTH, 16);
+        name.set_text(file_name);
+        name.set_pivot_type(PivotType::Bottom);
+        name.set_pivot_offset(Vector2::new(0, -4));
+        widget_add_child(item.clone(), name.clone());
 
         return item;
     }
 }
-
-impl Transform for AssetItem {}
 
 impl Widget for AssetItem {
     fn name(&self) -> &str {
@@ -81,16 +83,16 @@ impl Widget for AssetItem {
         &self.rect
     }
 
-    fn vertical_placement(&self) -> &Cell<VerticalPlacement> {
-        &self.vertical_placement
+    fn pivot(&self) -> &Cell<PivotType> {
+        &self.pivot
     }
 
-    fn horizontal_placement(&self) -> &Cell<HorizontalPlacement> {
-        &self.horizontal_placement
+    fn pivot_offset(&self) -> &Cell<Vector2> {
+        &self.pivot_offset
     }
 
-    fn local_position(&self) -> &Cell<Point> {
-        &self.local_position
+    fn parent(&self) -> &RefCell<Option<Arc<dyn Widget>>> {
+        &self.parent
     }
 
     fn children(&self) -> &RefCell<Vec<Arc<dyn Widget>>> {

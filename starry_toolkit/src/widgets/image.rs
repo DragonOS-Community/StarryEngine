@@ -5,21 +5,18 @@ use std::{
 
 use starry_client::base::{color::Color, renderer::Renderer};
 
-use crate::{
-    base::{point::Point, rect::Rect},
-    traits::transform::Transform,
-};
+use crate::base::{rect::Rect, vector2::Vector2};
 
-use super::{HorizontalPlacement, VerticalPlacement, Widget};
+use super::{PivotType, Widget};
 
 use crate::starry_server::base::image::Image as ImageResource;
 
 pub struct Image {
     pub rect: Cell<Rect>,
-    local_position: Cell<Point>,
-    vertical_placement: Cell<VerticalPlacement>,
-    horizontal_placement: Cell<HorizontalPlacement>,
+    pivot: Cell<PivotType>,
+    pivot_offset: Cell<Vector2>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
+    parent: RefCell<Option<Arc<dyn Widget>>>,
     /// 图像源数据
     pub image: RefCell<ImageResource>,
 }
@@ -40,9 +37,9 @@ impl Image {
     pub fn from_image(image: ImageResource) -> Arc<Self> {
         Arc::new(Image {
             rect: Cell::new(Rect::new(0, 0, image.width() as u32, image.height() as u32)),
-            local_position: Cell::new(Point::new(0, 0)),
-            vertical_placement: Cell::new(VerticalPlacement::Absolute),
-            horizontal_placement: Cell::new(HorizontalPlacement::Absolute),
+            pivot: Cell::new(PivotType::TopLeft),
+            pivot_offset: Cell::new(Vector2::new(0, 0)),
+            parent: RefCell::new(None),
             children: RefCell::new(vec![]),
             image: RefCell::new(image),
         })
@@ -57,8 +54,6 @@ impl Image {
     }
 }
 
-impl Transform for Image {}
-
 impl Widget for Image {
     fn name(&self) -> &str {
         "Image"
@@ -68,16 +63,16 @@ impl Widget for Image {
         &self.rect
     }
 
-    fn vertical_placement(&self) -> &Cell<VerticalPlacement> {
-        &self.vertical_placement
+    fn pivot(&self) -> &Cell<PivotType> {
+        &self.pivot
     }
 
-    fn horizontal_placement(&self) -> &Cell<HorizontalPlacement> {
-        &self.horizontal_placement
+    fn pivot_offset(&self) -> &Cell<Vector2> {
+        &self.pivot_offset
     }
 
-    fn local_position(&self) -> &Cell<Point> {
-        &self.local_position
+    fn parent(&self) -> &RefCell<Option<Arc<dyn Widget>>> {
+        &self.parent
     }
 
     fn children(&self) -> &RefCell<Vec<Arc<dyn Widget>>> {
