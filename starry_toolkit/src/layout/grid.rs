@@ -7,8 +7,8 @@ use std::{
 use starry_client::base::renderer::Renderer;
 
 use crate::{
-    base::{rect::Rect, vector2::Vector2},
-    traits::focus::Focus,
+    base::{event::Event, rect::Rect, vector2::Vector2},
+    traits::{enter::Enter, focus::Focus},
     widgets::{PivotType, Widget},
 };
 
@@ -34,9 +34,13 @@ pub struct Grid {
     /// 每行/列的最大元素数
     upper_limit: Cell<usize>,
     /// 当前行数
-    current_row: Cell<usize>,
+    pub current_row: Cell<usize>,
     /// 当前列数
-    current_column: Cell<usize>,
+    pub current_column: Cell<usize>,
+    /// 当前最大行数
+    pub max_row: Cell<usize>,
+    /// 当前最大列数
+    pub max_column: Cell<usize>,
     /// 元素字典
     pub elements: RefCell<BTreeMap<(usize, usize), Arc<dyn Widget>>>,
     /// 当前选中的元素id(行列号)
@@ -45,6 +49,8 @@ pub struct Grid {
     pub focused_widget: RefCell<Option<Arc<dyn Widget>>>,
     /// 优先排列方式
     arrange_type: Cell<GridArrangeType>,
+    /// 键盘输入回调
+    enter_callback: RefCell<Option<Arc<dyn Fn(&Self, char, &mut bool)>>>,
 }
 
 impl Grid {
@@ -60,10 +66,13 @@ impl Grid {
             upper_limit: Cell::new(0),
             current_row: Cell::new(0),
             current_column: Cell::new(0),
+            max_row: Cell::new(0),
+            max_column: Cell::new(0),
             elements: RefCell::new(BTreeMap::new()),
             focused_id: Cell::new(None),
             focused_widget: RefCell::new(None),
             arrange_type: Cell::new(GridArrangeType::Vertical),
+            enter_callback: RefCell::new(None),
         })
     }
 
@@ -78,14 +87,16 @@ impl Grid {
         self
     }
 
-    pub fn add<T: Widget>(&self, element: &Arc<T>) {
+    pub fn add<T: Widget>(&self, element: &Arc<T>) -> (usize, usize) {
         self.find_next_slot();
         self.elements.borrow_mut().insert(
             (self.current_row.get(), self.current_column.get()),
             element.clone(),
         );
+        let res = (self.current_row.get(), self.current_column.get());
         self.move_index();
         self.arrange_elements(false);
+        return res;
     }
 
     /// 找到下一个可放置元素的位置
@@ -123,10 +134,6 @@ impl Grid {
             .insert((row, column), element.clone());
 
         self.arrange_elements(false);
-    }
-
-    pub fn clear(&self) {
-        self.elements.borrow_mut().clear();
     }
 
     pub fn remove(&self, column: usize, row: usize) {
@@ -171,6 +178,9 @@ impl Grid {
             }
         }
 
+        self.max_row.set(rows.len());
+        self.max_column.set(cols.len());
+
         let space_x = self.space_x.get();
         let space_y = self.space_y.get();
 
@@ -200,6 +210,13 @@ impl Grid {
             child.arrange_all();
         }
     }
+
+    pub fn clear(&self) {
+        self.children.borrow_mut().clear();
+        self.elements.borrow_mut().clear();
+        self.current_column.set(0);
+        self.current_row.set(0);
+    }
 }
 
 impl Widget for Grid {
@@ -228,18 +245,31 @@ impl Widget for Grid {
     }
 
     fn draw(&self, renderer: &mut dyn Renderer, _focused: bool) {
-        fn draw_widget(widget: &Arc<dyn Widget>, renderer: &mut dyn Renderer, focused: bool) {
+        for (&(_row, _col), widget) in self.elements.borrow().iter() {
             widget.update();
-            widget.draw(renderer, focused);
+            widget.draw(renderer, self.is_focused(widget));
+        }
+    }
 
-            for child in widget.children().borrow().iter() {
-                draw_widget(child, renderer, focused);
+    fn handle_event(
+        &self,
+        event: Event,
+        _focused: bool,
+        redraw: &mut bool,
+        caught: &mut bool,
+    ) -> bool {
+        match event {
+            Event::KeyPressed { character, .. } => {
+                if let Some(character) = character {
+                    self.emit_enter(character, redraw);
+                }
+
+                *caught = true;
             }
+            // TODO
+            _ => {}
         }
-
-        for (&(_col, _row), widget) in self.elements.borrow().iter() {
-            draw_widget(widget, renderer, self.is_focused(widget));
-        }
+        false
     }
 }
 
@@ -250,5 +280,17 @@ impl Focus for Grid {
 
     fn focus(&self, widget: &Arc<dyn Widget>) {
         (*self.focused_widget.borrow_mut()) = Some(widget.clone());
+    }
+}
+
+impl Enter for Grid {
+    fn emit_enter(&self, char: char, redraw: &mut bool) {
+        if let Some(ref enter_callback) = *self.enter_callback.borrow() {
+            enter_callback(self, char, redraw);
+        }
+    }
+
+    fn set_enter_callback<T: Fn(&Self, char, &mut bool) + 'static>(&self, func: T) {
+        (*self.enter_callback.borrow_mut()) = Some(Arc::new(func));
     }
 }

@@ -7,7 +7,7 @@ use std::{
 use starry_client::base::renderer::Renderer;
 use starry_server::core::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
-use crate::base::{rect::Rect, vector2::Vector2};
+use crate::base::{event::Event, rect::Rect, vector2::Vector2};
 
 pub mod image;
 pub mod label;
@@ -123,6 +123,17 @@ pub trait Widget: Any {
 
     /// 更新组件状态
     fn update(&self) {}
+
+    /// 处理输入事件
+    fn handle_event(
+        &self,
+        _event: Event,
+        _focused: bool,
+        _redraw: &mut bool,
+        _caught: &mut bool,
+    ) -> bool {
+        false
+    }
 
     fn set_pivot_type(&self, pivot_type: PivotType) {
         self.set_pivot_type_base(pivot_type);

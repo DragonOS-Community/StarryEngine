@@ -11,3 +11,4 @@ authors = [ "2447742618 <2447742618@qq.com>" ]
 starry_client = {path = "../starry_client" }
 starry_toolkit = {path = "../starry_toolkit" }
 starry_server = {path = "../starry_server" }
+termios = "0.3"

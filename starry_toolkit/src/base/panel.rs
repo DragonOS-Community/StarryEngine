@@ -1,5 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
+    fs::File,
+    io::Read,
     sync::Arc,
 };
 
@@ -13,7 +15,9 @@ use starry_client::{
 
 use crate::{traits::focus::Focus, widgets::Widget};
 
-use super::rect::Rect;
+use super::{event::Event, rect::Rect};
+
+const TTY_DEVICE_PATH: &str = "/dev/char/tty0";
 
 /// 面板渲染器
 pub struct PanelRenderer<'a> {
@@ -74,6 +78,10 @@ pub struct Panel {
     pub running: Cell<bool>,
     /// 当前聚焦的窗口
     pub focused_widget: RefCell<Option<Arc<dyn Widget>>>,
+    /// 事件数组
+    events: RefCell<Vec<Event>>,
+    /// 需要重绘画面
+    redraw: bool,
 }
 
 impl Panel {
@@ -94,6 +102,8 @@ impl Panel {
             widgets: RefCell::new(Vec::new()),
             running: Cell::new(true),
             focused_widget: RefCell::new(None),
+            events: RefCell::new(Vec::new()),
+            redraw: true,
         }
     }
 
@@ -184,6 +194,67 @@ impl Panel {
         // 渲染子组件
         for child in widget.children().borrow().iter() {
             self.draw_widget(renderer, child);
+        }
+    }
+
+    pub fn tick(&mut self) {
+        // TODO 通过服务器，先从Window对象接收事件，再进行处理
+        self.handle_events();
+    }
+
+    /// 将事件传递给Widget对象
+    fn handle_events(&mut self) {
+        while let Some(event) = self.events.borrow_mut().pop() {
+            // 事件是否已被处理
+            let mut caught = false;
+
+            for widget in self.widgets.borrow().iter().rev() {
+                // TODO 处理返回值
+                widget.handle_event(
+                    event,
+                    self.is_focused(widget),
+                    &mut self.redraw,
+                    &mut caught,
+                );
+
+                if caught {
+                    break;
+                }
+            }
+        }
+    }
+
+    // TODO 临时函数 用于客户端直接处理用户输入
+    pub fn push_event(&self, event: Event) {
+        self.events.borrow_mut().push(event);
+    }
+
+    pub fn exec(&mut self) {
+        while self.running.get() {
+            self.polling_tty();
+            self.tick();
+            self.draw_if_needed();
+        }
+    }
+
+    /// 必要时重绘
+    fn draw_if_needed(&mut self) {
+        if self.redraw {
+            self.draw();
+            self.redraw = false;
+        }
+    }
+
+    // TODO 临时在客户端做输入读取  后续改为由服务器实现
+    fn polling_tty(&mut self) {
+        let mut tty = File::open(TTY_DEVICE_PATH).expect("fail to open tty file");
+        let mut bufffer: [u8; 128] = [0; 128];
+        let count = tty.read(&mut bufffer).expect("fail to read tty file");
+        for i in 0..count {
+            self.push_event(Event::KeyPressed {
+                character: Some(bufffer[i] as char),
+                scancode: bufffer[i],
+            });
         }
     }
 }

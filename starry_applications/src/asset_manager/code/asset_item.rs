@@ -9,6 +9,7 @@ use starry_toolkit::{
     base::{rect::Rect, vector2::Vector2},
     traits::text::Text,
     widgets::{
+        align_rect,
         image::Image,
         label::{Label, LabelOverflowType},
         widget_add_child, PivotType, Widget,
@@ -28,7 +29,7 @@ pub struct AssetItem {
     children: RefCell<Vec<Arc<dyn Widget>>>,
     /// 缓存值
     cache_focused: Cell<bool>,
-    _file_path: RefCell<String>,
+    pub file_path: RefCell<String>,
 }
 
 impl AssetItem {
@@ -43,7 +44,7 @@ impl AssetItem {
             parent: RefCell::new(None),
             children: RefCell::new(Vec::new()),
             cache_focused: Cell::new(false),
-            _file_path: RefCell::new(String::from_str(file_name).unwrap()),
+            file_path: RefCell::new(String::from_str(file_name).unwrap()),
         });
 
         // 背景Image
@@ -109,12 +110,22 @@ impl Widget for AssetItem {
                 children[0] = Image::from_color(
                     Self::ITEM_WIDTH,
                     Self::ITEM_HEIGHT,
-                    Color::rgba(0, 255, 255, 128),
+                    Color::rgba(0, 255, 255, 64),
                 );
             } else {
                 children[0] =
                     Image::from_color(Self::ITEM_WIDTH, Self::ITEM_HEIGHT, Color::rgba(0, 0, 0, 0));
             }
+
+            // TODO
+            // children[0].set_pivot_type(PivotType::Center);
+
+            children[0].rect().set(align_rect(
+                children[0].rect().get(),
+                self.rect.get(),
+                PivotType::Center,
+                Vector2::new(0, 0),
+            ))
         }
 
         for child in self.children.borrow().iter() {
