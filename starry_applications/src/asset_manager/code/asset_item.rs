@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     str::FromStr,
-    sync::Arc,
+    sync::{Arc, Weak},
 };
 
 use starry_client::base::{color::Color, renderer::Renderer};
@@ -12,7 +12,7 @@ use starry_toolkit::{
         align_rect,
         image::Image,
         label::{Label, LabelOverflowType},
-        widget_add_child, PivotType, Widget,
+        PivotType, Widget,
     },
 };
 
@@ -22,11 +22,13 @@ const FILE_ICON_PATH: &[u8] = include_bytes!("../resource/file_icon.png");
 const DIR_ICON_PATH: &[u8] = include_bytes!("../resource/dir_icon.png");
 
 pub struct AssetItem {
+    self_ref: RefCell<Weak<AssetItem>>,
     pub rect: Cell<Rect>,
     pivot: Cell<PivotType>,
     pivot_offset: Cell<Vector2>,
     parent: RefCell<Option<Arc<dyn Widget>>>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
+    panel_rect: Cell<Option<Rect>>,
     /// 缓存值
     cache_focused: Cell<bool>,
     pub file_path: RefCell<String>,
@@ -38,19 +40,23 @@ impl AssetItem {
 
     pub fn new(file_name: &str, is_dir: bool) -> Arc<Self> {
         let item = Arc::new(AssetItem {
+            self_ref: RefCell::new(Weak::default()),
             rect: Cell::new(Rect::new(0, 0, Self::ITEM_WIDTH, Self::ITEM_HEIGHT)),
             pivot: Cell::new(PivotType::TopLeft),
             pivot_offset: Cell::new(Vector2::new(0, 0)),
-            parent: RefCell::new(None),
             children: RefCell::new(Vec::new()),
+            parent: RefCell::new(None),
+            panel_rect: Cell::new(None),
             cache_focused: Cell::new(false),
             file_path: RefCell::new(String::from_str(file_name).unwrap()),
         });
 
+        (*item.self_ref.borrow_mut()) = Arc::downgrade(&item);
+
         // 背景Image
         let bg = Image::from_color(Self::ITEM_WIDTH, Self::ITEM_HEIGHT, Color::rgba(0, 0, 0, 0));
         bg.set_pivot_type(PivotType::Center);
-        widget_add_child(item.clone(), bg.clone());
+        item.add_child(bg);
 
         // 文件图标Image
         if let Some(icon) = match is_dir {
@@ -59,7 +65,7 @@ impl AssetItem {
         } {
             let icon = Image::from_image(icon);
             icon.set_pivot_type(PivotType::Top);
-            widget_add_child(item.clone(), icon.clone());
+            item.add_child(icon);
         }
 
         // 文件名Label
@@ -69,13 +75,17 @@ impl AssetItem {
         name.set_text(file_name);
         name.set_pivot_type(PivotType::Bottom);
         name.set_pivot_offset(Vector2::new(0, -4));
-        widget_add_child(item.clone(), name.clone());
+        item.add_child(name);
 
         return item;
     }
 }
 
 impl Widget for AssetItem {
+    fn self_ref(&self) -> Arc<dyn Widget> {
+        self.self_ref.borrow().upgrade().unwrap()
+    }
+
     fn name(&self) -> &str {
         "AssetItem"
     }
@@ -98,6 +108,10 @@ impl Widget for AssetItem {
 
     fn children(&self) -> &RefCell<Vec<Arc<dyn Widget>>> {
         &self.children
+    }
+
+    fn panel_rect(&self) -> &Cell<Option<Rect>> {
+        &self.panel_rect
     }
 
     fn draw(&self, renderer: &mut dyn Renderer, focused: bool) {

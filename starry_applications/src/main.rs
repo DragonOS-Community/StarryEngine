@@ -1,11 +1,14 @@
-use starry_apps::asset_manager::code::AssetManager;
+use std::io;
 
-fn main() {
-    // set_terminal();
+use starry_apps::{asset_manager::code::AssetManager, set_tty};
 
-    // TODO
+fn main() -> io::Result<()> {
+    set_tty()?;
+
     let mut viewer = AssetManager::new();
     viewer.init();
     viewer.refresh();
     viewer.exec();
+
+    Ok(())
 }

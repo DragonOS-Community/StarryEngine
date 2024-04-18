@@ -1,5 +1,6 @@
 use self::asset_item::AssetItem;
 use crate::starry_toolkit::traits::focus::Focus;
+use crate::starry_toolkit::widgets::Widget;
 use starry_client::base::color::Color;
 use starry_server::base::image::Image as ImageResource;
 use starry_server::core::{SCREEN_HEIGHT, SCREEN_WIDTH};
@@ -7,10 +8,10 @@ use starry_toolkit::{
     base::{panel::Panel, rect::Rect},
     layout::grid::{Grid, GridArrangeType},
     traits::enter::Enter,
-    widgets::{image::Image, widget_add_child},
+    widgets::image::Image,
 };
+use std::borrow::BorrowMut;
 use std::{collections::BTreeMap, fs, sync::Arc};
-
 pub mod asset_item;
 
 const DESKTOP_BG_PATH: &[u8] = include_bytes!("../resource/desktop_bg.png");
@@ -42,14 +43,26 @@ impl AssetManager {
         grid.set_space(20, 20);
         grid.set_arrange_type(GridArrangeType::Horizontal);
 
+        // 处理输入回调
         let self_ptr = self as *mut AssetManager;
         grid.set_enter_callback(move |grid, char, redraw| {
-            if char == ' ' {
+            if char == '\n' {
                 let asset_manager: &mut AssetManager = unsafe { &mut *self_ptr };
 
                 if let Some(item) = asset_manager.items.get(&grid.focused_id.get().unwrap()) {
-                    asset_manager.cur_path.push_str(&item.file_path.borrow());
-                    asset_manager.cur_path.push_str(&"/");
+                    if item.file_path.borrow().eq(&"..".to_string()) {
+                        if asset_manager.cur_path.len() == 1 {
+                            return;
+                        } else {
+                            let split_path =
+                                &asset_manager.cur_path[..asset_manager.cur_path.len() - 1];
+                            let slash_pos = split_path.rfind('/').unwrap();
+                            let _ = asset_manager.cur_path.split_off(slash_pos + 1);
+                        }
+                    } else {
+                        asset_manager.cur_path.push_str(&item.file_path.borrow());
+                        asset_manager.cur_path.push_str(&"/");
+                    }
                     asset_manager.refresh();
                 }
 
@@ -112,8 +125,6 @@ impl AssetManager {
                     .get(&(nxt_row as usize, nxt_col as usize))
                     .unwrap(),
             );
-            grid.focused_id
-                .set(Some((nxt_row as usize, nxt_col as usize)));
 
             *redraw = true;
         });
@@ -129,17 +140,26 @@ impl AssetManager {
         self.items.clear();
         self.asset_grid.clear();
 
+        // 父目录
+        let parent_asset_item = AssetItem::new("..", true);
+        let (row, col) = self.asset_grid.add(&parent_asset_item);
+        self.items.insert((row, col), parent_asset_item.clone());
+        (*self.asset_grid.borrow_mut()).add_child(parent_asset_item);
+
         // 读取目录中的文件列表
         if let Ok(entries) = fs::read_dir(&self.cur_path) {
             for entry in entries {
                 if let Ok(item) = entry {
-                    let asset_item = AssetItem::new(
-                        item.file_name().to_str().unwrap(),
-                        item.metadata().unwrap().is_dir(),
-                    );
+                    let is_dir = if let Ok(metadata) = item.metadata() {
+                        metadata.is_dir()
+                    } else {
+                        false
+                    };
+
+                    let asset_item = AssetItem::new(item.file_name().to_str().unwrap(), is_dir);
                     let (row, col) = self.asset_grid.add(&asset_item);
                     self.items.insert((row, col), asset_item.clone());
-                    widget_add_child(self.asset_grid.clone(), asset_item);
+                    (*self.asset_grid.borrow_mut()).add_child(asset_item);
                 }
             }
         } else {

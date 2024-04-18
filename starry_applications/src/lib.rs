@@ -9,32 +9,34 @@ use std::io;
 use std::os::unix::io::AsRawFd;
 use termios::{tcsetattr, Termios};
 
-// TODO
-#[allow(dead_code)]
-pub fn set_terminal() -> io::Result<()> {
-    let stdin = io::stdin().as_raw_fd();
-    let stored_settings = Termios::from_fd(stdin)?;
+static mut STORED_SETTINGS: Option<Termios> = None;
 
-    let mut new_settings = stored_settings.clone();
+/// 禁止tty回显 并设置为非阻塞模式
+pub fn set_tty() -> io::Result<()> {
+    let stdin = io::stdin().as_raw_fd();
+    let cur_settings = Termios::from_fd(stdin)?;
+
+    let mut new_settings = cur_settings.clone();
     new_settings.c_lflag &= !(termios::ICANON) & !(termios::ECHO);
     new_settings.c_cc[termios::VMIN] = 1;
     new_settings.c_cc[termios::VTIME] = 0;
 
     tcsetattr(stdin, termios::TCSANOW, &new_settings)?;
 
+    unsafe {
+        STORED_SETTINGS = Some(cur_settings);
+    }
+
     Ok(())
 }
 
-// TODO
-#[allow(dead_code)]
-pub fn reset_terminal() -> io::Result<()> {
+/// 回退tty设置
+pub fn reset_tty() -> io::Result<()> {
     let stdin = io::stdin().as_raw_fd();
-    let stored_settings = Termios::from_fd(stdin)?;
 
-    let mut new_settings = stored_settings.clone();
-    new_settings.c_lflag &= (termios::ICANON) & (termios::ECHO);
-
-    tcsetattr(stdin, termios::TCSANOW, &new_settings)?;
+    unsafe {
+        tcsetattr(stdin, termios::TCSANOW, &STORED_SETTINGS.unwrap())?;
+    }
 
     Ok(())
 }

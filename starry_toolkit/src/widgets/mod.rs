@@ -12,12 +12,6 @@ use crate::base::{event::Event, rect::Rect, vector2::Vector2};
 pub mod image;
 pub mod label;
 
-pub fn widget_add_child(parent: Arc<dyn Widget>, child: Arc<dyn Widget>) {
-    parent.children().borrow_mut().push(child.clone());
-    (*child.parent().borrow_mut()) = Some(parent.clone());
-    parent.arrange_all();
-}
-
 /// # 函数功能
 /// 工具类 根据pivot和offset来进行矩形位置的对齐
 ///
@@ -100,6 +94,9 @@ pub enum PivotType {
 
 ///  UI组件需要实现的特性
 pub trait Widget: Any {
+    /// 返回自身指针
+    fn self_ref(&self) -> Arc<dyn Widget>;
+
     /// 返回渲染的矩形区域
     fn rect(&self) -> &Cell<Rect>;
 
@@ -109,14 +106,23 @@ pub trait Widget: Any {
     /// 基于基准点的偏移量
     fn pivot_offset(&self) -> &Cell<Vector2>;
 
+    /// 所属面板的矩形
+    fn panel_rect(&self) -> &Cell<Option<Rect>>;
+
     /// 返回组件的名字
     fn name(&self) -> &str;
 
-    /// 返回父物体
-    fn parent(&self) -> &RefCell<Option<Arc<dyn Widget>>>;
-
     /// 返回子组件数组
     fn children(&self) -> &RefCell<Vec<Arc<dyn Widget>>>;
+
+    /// 父物体
+    fn parent(&self) -> &RefCell<Option<Arc<dyn Widget>>>;
+
+    /// 添加子物体
+    fn add_child(&self, widget: Arc<dyn Widget>) {
+        self.children().borrow_mut().push(widget.clone());
+        (*widget.parent().borrow_mut()) = Some(self.self_ref());
+    }
 
     /// 渲染组件
     fn draw(&self, renderer: &mut dyn Renderer, focused: bool);
@@ -181,12 +187,17 @@ pub trait Widget: Any {
         self.arrange_self_base();
     }
 
-    /// 根据父物体和pivot值来调整自身位置 统一处理 方便覆写
+    /// 根据参考的矩形和pivot值来调整自身位置(默认为父物体，也可以自定义为其他矩形)
+    /// 统一处理 方便覆写
     fn arrange_self_base(&self) {
         let relative_rect: Rect = if self.parent().borrow().is_some() {
-            self.parent().borrow().as_ref().unwrap().rect().get()
+            // 优先以父物体作为参考
+            self.parent().borrow().clone().unwrap().rect().get()
+        } else if self.panel_rect().get().is_some() {
+            // 没有父物体 则以所属面板作为参考
+            self.panel_rect().get().unwrap()
         } else {
-            // 没有父物体 则以整个屏幕作为参考
+            // 否则以整个屏幕作为参考
             Rect::new(0, 0, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
         };
 

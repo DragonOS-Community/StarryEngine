@@ -16,6 +16,8 @@ const SCREEN_WIDTH: usize = 1440;
 #[allow(dead_code)]
 const SCREEN_HEIGHT: usize = 900;
 
+const FB_FILE_PATH: &str = "/dev/fb0";
+
 /// 客户端的窗口类，与服务端的窗口对象一一对应  
 /// 一般来说客户端应用程序不直接使用该类，而通过Toolkit库间接使用
 #[allow(dead_code)]
@@ -42,6 +44,8 @@ pub struct Window {
     // data_opt: Option<& 'static mut [Color]>,
     /// 窗口的渲染数据
     data_opt: Option<Box<[Color]>>,
+    /// 帧缓冲文件
+    fb_file: File,
 }
 
 impl Renderer for Window {
@@ -62,16 +66,16 @@ impl Renderer for Window {
     }
 
     fn sync(&mut self) -> bool {
-        let mut fb = File::open("/dev/fb0").expect("Unable to open framebuffer");
-
         for y in 0..self.height() as i32 {
             for x in 0..self.width() as i32 {
                 let pixel = self.get_pixel(x, y);
                 let offset = (((y + self.y()) * SCREEN_WIDTH as i32) + x + self.x()) * 4;
                 // 写缓冲区
-                fb.seek(SeekFrom::Start(offset as u64))
+                self.fb_file
+                    .seek(SeekFrom::Start(offset as u64))
                     .expect("Unable to seek framebuffer");
-                fb.write_all(&pixel.to_bgra_bytes())
+                self.fb_file
+                    .write_all(&pixel.to_bgra_bytes())
                     .expect("Unable to write framebuffer");
             }
         }
@@ -98,6 +102,7 @@ impl Window {
             mode: Cell::new(RenderMode::Blend),
             // file_opt: None,
             data_opt: Some(vec![color; (w * h) as usize].into_boxed_slice()),
+            fb_file: File::open(FB_FILE_PATH).expect("[Error] Window failed to open fb file"),
         }
 
         // TODO: 与服务器通信

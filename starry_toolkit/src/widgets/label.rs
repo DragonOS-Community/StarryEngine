@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     cmp::max,
-    sync::Arc,
+    sync::{Arc, Weak},
 };
 
 use starry_client::base::{color::Color, renderer::Renderer};
@@ -25,11 +25,13 @@ pub enum LabelOverflowType {
 }
 
 pub struct Label {
+    self_ref: RefCell<Weak<Label>>,
     pub rect: Cell<Rect>,
     pivot: Cell<PivotType>,
     pivot_offset: Cell<Vector2>,
-    parent: RefCell<Option<Arc<dyn Widget>>>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
+    parent: RefCell<Option<Arc<dyn Widget>>>,
+    panel_rect: Cell<Option<Rect>>,
     /// 实际上的文本
     real_text: RefCell<String>,
     /// 用于显示的文本
@@ -45,19 +47,25 @@ pub struct Label {
 // TODO 暂时只支持渲染一行字体
 impl Label {
     pub fn new() -> Arc<Self> {
-        Arc::new(Label {
+        let label = Arc::new(Label {
             rect: Cell::new(Rect::default()),
             pivot: Cell::new(PivotType::TopLeft),
             pivot_offset: Cell::new(Vector2::new(0, 0)),
-            parent: RefCell::new(None),
             children: RefCell::new(vec![]),
+            parent: RefCell::new(None),
+            panel_rect: Cell::new(None),
             real_text: RefCell::new(String::new()),
             show_text: RefCell::new(String::new()),
             text_color: Cell::new(Color::rgb(0, 0, 0)), // 默认黑色字体
             adapt_type: Cell::new(LabelOverflowType::None),
             text_rect: Cell::new(Rect::default()),
             text_pivot: Cell::new(PivotType::Center),
-        })
+            self_ref: RefCell::new(Weak::new()),
+        });
+
+        (*label.self_ref.borrow_mut()) = Arc::downgrade(&label);
+
+        return label;
     }
 
     /// 处理文本溢出的情况
@@ -97,6 +105,10 @@ impl Label {
 }
 
 impl Widget for Label {
+    fn self_ref(&self) -> Arc<dyn Widget> {
+        self.self_ref.borrow().upgrade().unwrap() as Arc<dyn Widget>
+    }
+
     fn name(&self) -> &str {
         "Label"
     }
@@ -119,6 +131,10 @@ impl Widget for Label {
 
     fn children(&self) -> &RefCell<Vec<Arc<dyn Widget>>> {
         &self.children
+    }
+
+    fn panel_rect(&self) -> &Cell<Option<Rect>> {
+        &self.panel_rect
     }
 
     fn draw(&self, renderer: &mut dyn Renderer, _focused: bool) {

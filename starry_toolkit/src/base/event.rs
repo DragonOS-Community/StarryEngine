@@ -13,12 +13,10 @@ pub enum Event {
 
     KeyPressed {
         character: Option<char>,
-        scancode: u8,
     },
 
     KeyReleased {
         character: Option<char>,
-        scancode: u8,
     },
 
     Scroll {

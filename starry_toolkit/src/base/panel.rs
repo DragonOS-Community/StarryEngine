@@ -3,6 +3,8 @@ use std::{
     fs::File,
     io::Read,
     sync::Arc,
+    thread,
+    time::Duration,
 };
 
 use starry_client::{
@@ -18,6 +20,8 @@ use crate::{traits::focus::Focus, widgets::Widget};
 use super::{event::Event, rect::Rect};
 
 const TTY_DEVICE_PATH: &str = "/dev/char/tty0";
+
+const DURATION_TIME: Duration = Duration::from_millis(25);
 
 /// 面板渲染器
 pub struct PanelRenderer<'a> {
@@ -61,17 +65,13 @@ impl<'a> Renderer for PanelRenderer<'a> {
     // }
 }
 
-impl<'a> Drop for PanelRenderer<'a> {
-    fn drop(&mut self) {
-        self.window.sync();
-    }
-}
-
-/// UI面板类作为容器管理一组UI组件(UI-Widget)  
+/// UI面板类作为容器管理一组UI组件(UI-Widget)   
 /// 拥有一个窗口对象用于渲染和事件传递
 pub struct Panel {
     /// 客户端窗口对象
     window: RefCell<Window>,
+    /// 面板矩形
+    rect: Cell<Rect>,
     /// 子组件数组
     pub widgets: RefCell<Vec<Arc<dyn Widget>>>,
     /// 窗口是否打开
@@ -82,28 +82,28 @@ pub struct Panel {
     events: RefCell<Vec<Event>>,
     /// 需要重绘画面
     redraw: bool,
+    /// tty文件
+    tty_file: File,
 }
 
 impl Panel {
     pub fn new(rect: Rect, title: &str, color: Color) -> Self {
-        Panel::from_window(Window::new(
-            rect.x,
-            rect.y,
-            rect.width,
-            rect.height,
-            title,
-            color,
-        ))
+        Panel::from_window(
+            Window::new(rect.x, rect.y, rect.width, rect.height, title, color),
+            rect,
+        )
     }
 
-    pub fn from_window(window: Window) -> Self {
+    pub fn from_window(window: Window, rect: Rect) -> Self {
         Panel {
             window: RefCell::new(window),
+            rect: Cell::new(rect),
             widgets: RefCell::new(Vec::new()),
             running: Cell::new(true),
             focused_widget: RefCell::new(None),
             events: RefCell::new(Vec::new()),
             redraw: true,
+            tty_file: File::open(TTY_DEVICE_PATH).expect("[Error] Panel failed to open tty file"),
         }
     }
 
@@ -134,6 +134,11 @@ impl Panel {
     pub fn height(&self) -> u32 {
         let window = self.window.borrow();
         (*window).height()
+    }
+
+    /// 返回面板矩形
+    pub fn rect(&self) -> Rect {
+        self.rect.get()
     }
 
     /// 窗口标题
@@ -170,7 +175,7 @@ impl Panel {
         let mut widgets = self.widgets.borrow_mut();
         let id = widgets.len();
         widgets.push(widget.clone());
-
+        widget.panel_rect().set(Some(self.rect.get()));
         return id;
     }
 
@@ -234,6 +239,8 @@ impl Panel {
             self.polling_tty();
             self.tick();
             self.draw_if_needed();
+
+            thread::sleep(DURATION_TIME);
         }
     }
 
@@ -247,13 +254,14 @@ impl Panel {
 
     // TODO 临时在客户端做输入读取  后续改为由服务器实现
     fn polling_tty(&mut self) {
-        let mut tty = File::open(TTY_DEVICE_PATH).expect("fail to open tty file");
         let mut bufffer: [u8; 128] = [0; 128];
-        let count = tty.read(&mut bufffer).expect("fail to read tty file");
+        let count = self
+            .tty_file
+            .read(&mut bufffer)
+            .expect("[Error] Panel failed to read tty file");
         for i in 0..count {
             self.push_event(Event::KeyPressed {
                 character: Some(bufffer[i] as char),
-                scancode: bufffer[i],
             });
         }
     }

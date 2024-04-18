@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     collections::BTreeMap,
-    sync::Arc,
+    sync::{Arc, Weak},
 };
 
 use starry_client::base::renderer::Renderer;
@@ -22,11 +22,13 @@ pub enum GridArrangeType {
 }
 
 pub struct Grid {
+    self_ref: RefCell<Weak<Grid>>,
     pub rect: Cell<Rect>,
     pivot: Cell<PivotType>,
     pivot_offset: Cell<Vector2>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
     parent: RefCell<Option<Arc<dyn Widget>>>,
+    panel_rect: Cell<Option<Rect>>,
     /// x坐标间隔
     space_x: Cell<i32>,
     /// y坐标间隔
@@ -55,12 +57,14 @@ pub struct Grid {
 
 impl Grid {
     pub fn new() -> Arc<Self> {
-        Arc::new(Grid {
+        let grid = Arc::new(Grid {
+            self_ref: RefCell::new(Weak::default()),
             rect: Cell::new(Rect::default()),
             pivot: Cell::new(PivotType::TopLeft),
             pivot_offset: Cell::new(Vector2::new(0, 0)),
             children: RefCell::new(vec![]),
             parent: RefCell::new(None),
+            panel_rect: Cell::new(None),
             space_x: Cell::new(0),
             space_y: Cell::new(0),
             upper_limit: Cell::new(0),
@@ -73,7 +77,11 @@ impl Grid {
             focused_widget: RefCell::new(None),
             arrange_type: Cell::new(GridArrangeType::Vertical),
             enter_callback: RefCell::new(None),
-        })
+        });
+
+        (*grid.self_ref.borrow_mut()) = Arc::downgrade(&grid);
+
+        return grid;
     }
 
     /// 设置每行/列最大元素数量(取决于行/列优先排列)
@@ -144,6 +152,13 @@ impl Grid {
         self.space_x.set(x);
         self.space_y.set(y);
         self
+    }
+
+    pub fn focus_by_id(&self, (row, col): (usize, usize)) {
+        if let Some(widget) = self.elements.borrow().get(&(row, col)) {
+            (*self.focused_widget.borrow_mut()) = Some(widget.clone());
+            self.focused_id.set(Some((row, col)));
+        }
     }
 
     // TODO 注释补充
@@ -220,6 +235,10 @@ impl Grid {
 }
 
 impl Widget for Grid {
+    fn self_ref(&self) -> Arc<dyn Widget> {
+        self.self_ref.borrow().upgrade().unwrap()
+    }
+
     fn name(&self) -> &str {
         "Grid"
     }
@@ -242,6 +261,10 @@ impl Widget for Grid {
 
     fn children(&self) -> &RefCell<Vec<Arc<dyn Widget>>> {
         &self.children
+    }
+
+    fn panel_rect(&self) -> &Cell<Option<Rect>> {
+        &self.panel_rect
     }
 
     fn draw(&self, renderer: &mut dyn Renderer, _focused: bool) {
@@ -278,8 +301,14 @@ impl Focus for Grid {
         self.focused_widget.clone()
     }
 
-    fn focus(&self, widget: &Arc<dyn Widget>) {
-        (*self.focused_widget.borrow_mut()) = Some(widget.clone());
+    fn focus(&self, focused_widget: &Arc<dyn Widget>) {
+        // 同时更新focused_id
+        for ((row, col), widget) in self.elements.borrow().iter() {
+            if Arc::ptr_eq(widget, focused_widget) {
+                self.focused_id.set(Some((*row, *col)));
+                (*self.focused_widget.borrow_mut()) = Some(focused_widget.clone());
+            }
+        }
     }
 }
 
