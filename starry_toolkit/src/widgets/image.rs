@@ -1,6 +1,6 @@
 use std::{
     cell::{Cell, RefCell},
-    sync::Arc,
+    sync::{Arc, Weak},
 };
 
 use starry_client::base::{color::Color, renderer::Renderer};
@@ -12,11 +12,13 @@ use super::{PivotType, Widget};
 use crate::starry_server::base::image::Image as ImageResource;
 
 pub struct Image {
+    self_ref: RefCell<Weak<Image>>,
     pub rect: Cell<Rect>,
     pivot: Cell<PivotType>,
     pivot_offset: Cell<Vector2>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
     parent: RefCell<Option<Arc<dyn Widget>>>,
+    panel_rect: Cell<Option<Rect>>,
     /// 图像源数据
     pub image: RefCell<ImageResource>,
 }
@@ -36,11 +38,13 @@ impl Image {
 
     pub fn from_image(image: ImageResource) -> Arc<Self> {
         Arc::new(Image {
+            self_ref: RefCell::new(Weak::default()),
             rect: Cell::new(Rect::new(0, 0, image.width() as u32, image.height() as u32)),
             pivot: Cell::new(PivotType::TopLeft),
             pivot_offset: Cell::new(Vector2::new(0, 0)),
-            parent: RefCell::new(None),
             children: RefCell::new(vec![]),
+            parent: RefCell::new(None),
+            panel_rect: Cell::new(None),
             image: RefCell::new(image),
         })
     }
@@ -55,6 +59,10 @@ impl Image {
 }
 
 impl Widget for Image {
+    fn self_ref(&self) -> Arc<dyn Widget> {
+        self.self_ref.borrow().upgrade().unwrap()
+    }
+
     fn name(&self) -> &str {
         "Image"
     }
@@ -71,12 +79,16 @@ impl Widget for Image {
         &self.pivot_offset
     }
 
+    fn children(&self) -> &RefCell<Vec<Arc<dyn Widget>>> {
+        &self.children
+    }
+
     fn parent(&self) -> &RefCell<Option<Arc<dyn Widget>>> {
         &self.parent
     }
 
-    fn children(&self) -> &RefCell<Vec<Arc<dyn Widget>>> {
-        &self.children
+    fn panel_rect(&self) -> &Cell<Option<Rect>> {
+        &self.panel_rect
     }
 
     fn draw(&self, renderer: &mut dyn Renderer, _focused: bool) {
