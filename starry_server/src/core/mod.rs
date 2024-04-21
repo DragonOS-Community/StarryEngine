@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    rc::Rc,
-    sync::{Arc, RwLock},
-};
+use std::{cell::RefCell, collections::BTreeMap, sync::Arc};
 
 use crate::{
     base::{display::Display, image::Image},
@@ -37,20 +33,14 @@ pub fn starry_server() -> Option<Arc<StarryServer>> {
 
 /// 图形系统服务器
 pub struct StarryServer {
-    /// 数据锁
-    data: RwLock<StarryServerData>,
-}
-
-pub struct StarryServerData {
-    /// 窗口数组
-    pub displays: Vec<Display>,
-    pub config: Rc<Config>,
-    pub cursors: BTreeMap<CursorKind, Image>,
+    pub displays: RefCell<Vec<Display>>,
+    pub config: RefCell<Arc<Config>>,
+    pub cursors: RefCell<BTreeMap<CursorKind, Image>>,
 }
 
 impl StarryServer {
     /// 创建图形服务器
-    pub fn new(config: Rc<Config>, displays: Vec<Display>) {
+    pub fn new(config: Arc<Config>, displays: Vec<Display>) {
         let mut cursors = BTreeMap::new();
         cursors.insert(CursorKind::None, Image::new(0, 0));
         cursors.insert(
@@ -64,11 +54,9 @@ impl StarryServer {
         // cursors.insert(CursorKind::RightSide, Image::from_path_scale(&config.right_side, scale).unwrap_or(Image::new(0, 0)));
 
         let server = StarryServer {
-            data: RwLock::new(StarryServerData {
-                displays: displays,
-                config: Rc::clone(&config),
-                cursors: cursors,
-            }),
+            displays: RefCell::new(displays),
+            config: RefCell::new(config),
+            cursors: RefCell::new(cursors),
         };
 
         unsafe {

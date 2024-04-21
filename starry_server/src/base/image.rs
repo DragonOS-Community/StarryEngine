@@ -1,10 +1,4 @@
-use std::{
-    cell::Cell,
-    cmp,
-    fs::File,
-    io::{Seek, SeekFrom, Write},
-    mem, ptr, slice,
-};
+use std::{cell::Cell, cmp, mem, ptr, slice};
 
 use image::GenericImageView;
 use resize::Type;
@@ -336,32 +330,6 @@ impl Image {
             rect: *rect,
             w: self.w,
             data: &mut self.data,
-        }
-    }
-
-    /// 展示在桌面中央
-    pub fn show_on_desktop(&self) {
-        let xoffset = (SCREEN_WIDTH as i32 - self.width()) / 2;
-        let yoffset = (SCREEN_HEIGHT as i32 - self.height()) / 2;
-        let mut fb = File::open("/dev/fb0").expect("[Error] Unable to open framebuffer");
-        for y in 0..self.height() {
-            for x in 0..self.width() {
-                let index: i32 = y * self.width() + x;
-                let offset = ((y + yoffset) * SCREEN_WIDTH as i32 + x + xoffset) * 4;
-                let color = &self.data[index as usize];
-                println!(
-                    "Image show print x:{:?} y:{:?} rgba:{:?} {:?} {:?} {:?}",
-                    x,
-                    y,
-                    color.r(),
-                    color.g(),
-                    color.b(),
-                    color.a()
-                );
-                fb.seek(SeekFrom::Start(offset as u64)).expect("error");
-                fb.write(&self.data[index as usize].to_bgra_bytes())
-                    .expect("error");
-            }
         }
     }
 

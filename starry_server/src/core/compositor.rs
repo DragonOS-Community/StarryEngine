@@ -1,7 +1,8 @@
 use std::{
+    cell::RefCell,
     fs::File,
     io::{Seek, SeekFrom, Write},
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use starry_client::base::renderer::Renderer;
@@ -12,6 +13,8 @@ use super::{starry_server, window_manager::window_manager, SCREEN_WIDTH};
 
 static mut COMPOSITOR: Option<Arc<Compositor>> = None;
 
+const FB_FILE_PATH: &str = "/dev/fb0";
+
 /// 获得合成渲染器实例
 pub fn compositor() -> Option<Arc<Compositor>> {
     unsafe { COMPOSITOR.clone() }
@@ -20,15 +23,10 @@ pub fn compositor() -> Option<Arc<Compositor>> {
 #[allow(dead_code)]
 /// 合成渲染器
 pub struct Compositor {
-    /// 数据锁
-    data: RwLock<CompositorData>,
-}
-
-pub struct CompositorData {
     /// 待重绘的窗口
-    redraws: Vec<Rect>,
-
-    fb_file: File,
+    redraws: RefCell<Vec<Rect>>,
+    /// 帧缓冲文件
+    fb_file: RefCell<File>,
 }
 
 #[allow(dead_code)]
@@ -36,10 +34,10 @@ impl Compositor {
     /// 创建合成渲染器
     pub fn new() {
         let compositor = Compositor {
-            data: RwLock::new(CompositorData {
-                redraws: Vec::new(),
-                fb_file: File::open("/dev/fb0").expect("[Error] Unable to open framebuffer"),
-            }),
+            redraws: RefCell::new(Vec::new()),
+            fb_file: RefCell::new(
+                File::open(FB_FILE_PATH).expect("[Error] Compositor failed to open fb file"),
+            ),
         };
 
         unsafe {
@@ -60,12 +58,8 @@ impl Compositor {
         // 对窗口排序
         window_manager.rezbuffer();
 
-        let mut window_manager_guard = window_manager.data.write().unwrap();
-        let mut compositor_guard = self.data.write().unwrap();
-        let mut server_guard = server.data.write().unwrap();
-
         let mut total_redraw_rect_opt: Option<Rect> = None;
-        for original_rect in compositor_guard.redraws.drain(..) {
+        for original_rect in self.redraws.borrow_mut().drain(..) {
             // 更新重绘的总矩形区域
             if !original_rect.is_empty() {
                 total_redraw_rect_opt = match total_redraw_rect_opt {
@@ -74,20 +68,21 @@ impl Compositor {
                 }
             }
 
-            let mut cursors = server_guard.cursors.clone();
             // 遍历所有显示窗口
-            for display in server_guard.displays.iter_mut() {
+            for display in server.displays.borrow_mut().iter_mut() {
                 let rect = original_rect.intersection(&display.screen_rect());
                 if !rect.is_empty() {
                     // TODO: 填充默认颜色
 
                     // 倒序渲染所有窗口
-                    let len = window_manager_guard.zbuffer.len();
+                    let zbuffer = window_manager.zbuffer.borrow_mut();
+                    let len = zbuffer.len();
                     for index in (0..len).rev() {
-                        let entry = window_manager_guard.zbuffer.get(index).unwrap();
+                        let entry = zbuffer.get(index).unwrap();
                         let _id = entry.0;
                         let index = entry.2;
-                        if let Some(window) = window_manager_guard.windows.get_mut(&index) {
+                        let mut windows = window_manager.windows.borrow_mut();
+                        if let Some(window) = windows.get_mut(&index) {
                             // TODO: 渲染窗口标题
 
                             // 渲染窗体
@@ -98,7 +93,11 @@ impl Compositor {
 
                 let cursor_intersect = rect.intersection(&cursor_rect);
                 if !cursor_intersect.is_empty() {
-                    if let Some(cursor) = cursors.get_mut(&window_manager_guard.cursor_i) {
+                    if let Some(cursor) = server
+                        .cursors
+                        .borrow_mut()
+                        .get_mut(&window_manager.cursor_i.get())
+                    {
                         display.roi(&cursor_intersect).blend(&cursor.roi(
                             &cursor_intersect.offset(-cursor_rect.left(), -cursor_rect.top()),
                         ));
@@ -110,10 +109,10 @@ impl Compositor {
         // println!("[Info] Compositor calculate total redraw rect done!");
 
         // TODO
-        let mut fb = &compositor_guard.fb_file;
+        let mut fb = self.fb_file.borrow_mut();
 
         if let Some(total_redraw_rect) = total_redraw_rect_opt {
-            for display in server_guard.displays.iter_mut() {
+            for display in server.displays.borrow_mut().iter_mut() {
                 let display_redraw = total_redraw_rect.intersection(&display.screen_rect());
                 if !display_redraw.is_empty() {
                     for y in 0..display_redraw.height() {
@@ -140,10 +139,9 @@ impl Compositor {
     /// 窗口请求重绘
     pub fn request_redraw(&self, rect: Rect) {
         // println!("[Info] Compositor request redraw rect {:?}", rect);
-        let mut guard = self.data.write().unwrap();
         let mut push = true;
 
-        for rect in guard.redraws.iter_mut() {
+        for rect in self.redraws.borrow_mut().iter_mut() {
             let container = rect.container(&rect);
             if container.area() <= rect.area() + rect.area() {
                 *rect = container;
@@ -152,7 +150,7 @@ impl Compositor {
         }
 
         if push {
-            guard.redraws.push(rect);
+            self.redraws.borrow_mut().push(rect);
         }
     }
 }

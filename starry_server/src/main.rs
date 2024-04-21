@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use starry_server::{
     base::display::Display,
@@ -17,7 +17,7 @@ fn main() {
     ));
 
     // TODO 暂时不考虑配置文件
-    let config: Rc<Config> = Rc::new(Config::default());
+    let config: Arc<Config> = Arc::new(Config::default());
 
     //开启Starry Server
     StarryServer::new(config, displays);
