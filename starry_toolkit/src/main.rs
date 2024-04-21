@@ -26,9 +26,9 @@ fn main() {
     let grid = Grid::new();
     grid.set_space(10, 10);
     grid.set_upper_limit(2);
-    grid.add(&label1);
-    grid.add(&label2);
-    grid.add(&label3);
+    grid.add_element(&label1);
+    grid.add_element(&label2);
+    grid.add_element(&label3);
 
     panel.add_child(&grid);
 

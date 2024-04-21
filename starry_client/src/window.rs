@@ -1,5 +1,6 @@
 use std::{
     cell::Cell,
+    cmp::min,
     fs::File,
     io::{Seek, SeekFrom, Write},
 };
@@ -66,8 +67,12 @@ impl Renderer for Window {
     }
 
     fn sync(&mut self) -> bool {
-        for y in 0..self.height() as i32 {
-            for x in 0..self.width() as i32 {
+        // 处理窗口大小超限的情况
+        let width = min(self.width() as i32, SCREEN_WIDTH as i32 - self.x);
+        let height = min(self.height() as i32, SCREEN_HEIGHT as i32 - self.y);
+
+        for y in 0..height as i32 {
+            for x in 0..width as i32 {
                 let pixel = self.get_pixel(x, y);
                 let offset = (((y + self.y()) * SCREEN_WIDTH as i32) + x + self.x()) * 4;
                 // 写缓冲区
