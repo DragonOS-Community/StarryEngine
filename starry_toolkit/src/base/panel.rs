@@ -1,12 +1,3 @@
-use std::{
-    cell::{Cell, RefCell},
-    fs::File,
-    io::Read,
-    sync::Arc,
-    thread,
-    time::Duration,
-};
-
 use starry_client::{
     base::{
         color::Color,
@@ -14,8 +5,16 @@ use starry_client::{
     },
     window::Window,
 };
+use std::{
+    cell::{Cell, RefCell},
+    fs::File,
+    io::Read,
+    sync::{Arc, Weak},
+    thread,
+    time::Duration,
+};
 
-use crate::{traits::focus::Focus, widgets::Widget};
+use crate::{traits::focus::Focus, util::widget_set_panel, widgets::Widget};
 
 use super::{event::Event, rect::Rect};
 
@@ -68,43 +67,52 @@ impl<'a> Renderer for PanelRenderer<'a> {
 /// UI面板类作为容器管理一组UI组件(UI-Widget)   
 /// 拥有一个窗口对象用于渲染和事件传递
 pub struct Panel {
+    /// 指向自身的弱引用
+    self_ref: RefCell<Weak<Panel>>,
     /// 客户端窗口对象
     window: RefCell<Window>,
     /// 面板矩形
     rect: Cell<Rect>,
     /// 子组件数组
-    pub widgets: RefCell<Vec<Arc<dyn Widget>>>,
+    widgets: RefCell<Vec<Arc<dyn Widget>>>,
     /// 窗口是否打开
-    pub running: Cell<bool>,
+    running: Cell<bool>,
     /// 当前聚焦的窗口
-    pub focused_widget: RefCell<Option<Arc<dyn Widget>>>,
+    focused_widget: RefCell<Option<Arc<dyn Widget>>>,
     /// 事件数组
     events: RefCell<Vec<Event>>,
     /// 需要重绘画面
-    redraw: bool,
+    redraw: Cell<bool>,
     /// tty文件
-    tty_file: File,
+    tty_file: RefCell<File>,
 }
 
 impl Panel {
-    pub fn new(rect: Rect, title: &str, color: Color) -> Self {
+    pub fn new(rect: Rect, title: &str, color: Color) -> Arc<Panel> {
         Panel::from_window(
             Window::new(rect.x, rect.y, rect.width, rect.height, title, color),
             rect,
         )
     }
 
-    pub fn from_window(window: Window, rect: Rect) -> Self {
-        Panel {
+    pub fn from_window(window: Window, rect: Rect) -> Arc<Panel> {
+        let panel = Arc::new(Panel {
+            self_ref: RefCell::new(Weak::default()),
             window: RefCell::new(window),
             rect: Cell::new(rect),
             widgets: RefCell::new(Vec::new()),
             running: Cell::new(true),
             focused_widget: RefCell::new(None),
             events: RefCell::new(Vec::new()),
-            redraw: true,
-            tty_file: File::open(TTY_DEVICE_PATH).expect("[Error] Panel failed to open tty file"),
-        }
+            redraw: Cell::new(false),
+            tty_file: RefCell::new(
+                File::open(TTY_DEVICE_PATH).expect("[Error] Panel failed to open tty file"),
+            ),
+        });
+
+        (*panel.self_ref.borrow_mut()) = Arc::downgrade(&panel);
+
+        return panel;
     }
 
     /// 获得客户端窗口对象
@@ -172,10 +180,15 @@ impl Panel {
 
     /// 添加子组件，返回子组件id
     pub fn add_child<T: Widget>(&self, widget: &Arc<T>) -> usize {
+        widget_set_panel(
+            &widget.self_ref(),
+            &self.self_ref.borrow().upgrade().unwrap(),
+        );
+
         let mut widgets = self.widgets.borrow_mut();
         let id = widgets.len();
         widgets.push(widget.clone());
-        widget.panel_rect().set(Some(self.rect.get()));
+        widget.arrange_all();
         return id;
     }
 
@@ -202,27 +215,22 @@ impl Panel {
         }
     }
 
-    pub fn tick(&mut self) {
+    pub fn tick(&self) {
         // TODO 通过服务器，先从Window对象接收事件，再进行处理
         self.handle_events();
     }
 
     /// 将事件传递给Widget对象
-    fn handle_events(&mut self) {
+    fn handle_events(&self) {
         while let Some(event) = self.events.borrow_mut().pop() {
             // 事件是否已被处理
-            let mut caught = false;
+            let caught = Cell::new(false);
 
             for widget in self.widgets.borrow().iter().rev() {
                 // TODO 处理返回值
-                widget.handle_event(
-                    event,
-                    self.is_focused(widget),
-                    &mut self.redraw,
-                    &mut caught,
-                );
+                widget.handle_event(event, self.is_focused(widget), &self.redraw, &caught);
 
-                if caught {
+                if caught.get() {
                     break;
                 }
             }
@@ -234,7 +242,7 @@ impl Panel {
         self.events.borrow_mut().push(event);
     }
 
-    pub fn exec(&mut self) {
+    pub fn exec(&self) {
         while self.running.get() {
             self.polling_tty();
             self.tick();
@@ -245,18 +253,19 @@ impl Panel {
     }
 
     /// 必要时重绘
-    fn draw_if_needed(&mut self) {
-        if self.redraw {
+    fn draw_if_needed(&self) {
+        if self.redraw.get() {
             self.draw();
-            self.redraw = false;
+            self.redraw.set(false);
         }
     }
 
     // TODO 临时在客户端做输入读取  后续改为由服务器实现
-    fn polling_tty(&mut self) {
+    fn polling_tty(&self) {
         let mut bufffer: [u8; 128] = [0; 128];
         let count = self
             .tty_file
+            .borrow_mut()
             .read(&mut bufffer)
             .expect("[Error] Panel failed to read tty file");
         for i in 0..count {

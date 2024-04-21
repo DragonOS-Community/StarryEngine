@@ -5,10 +5,10 @@ use starry_apps::{asset_manager::code::AssetManager, set_tty};
 fn main() -> io::Result<()> {
     set_tty()?;
 
-    let mut viewer = AssetManager::new();
-    viewer.init();
-    viewer.refresh();
-    viewer.exec();
+    let mut asset_manager = AssetManager::new();
+    asset_manager.init();
+    asset_manager.refresh();
+    asset_manager.exec();
 
     Ok(())
 }

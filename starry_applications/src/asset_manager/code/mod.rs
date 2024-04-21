@@ -1,6 +1,5 @@
 use self::asset_item::AssetItem;
 use crate::starry_toolkit::traits::focus::Focus;
-use crate::starry_toolkit::widgets::Widget;
 use starry_client::base::color::Color;
 use starry_server::base::image::Image as ImageResource;
 use starry_server::core::{SCREEN_HEIGHT, SCREEN_WIDTH};
@@ -10,17 +9,22 @@ use starry_toolkit::{
     traits::enter::Enter,
     widgets::image::Image,
 };
-use std::borrow::BorrowMut;
 use std::{collections::BTreeMap, fs, sync::Arc};
 pub mod asset_item;
 
 const DESKTOP_BG_PATH: &[u8] = include_bytes!("../resource/desktop_bg.png");
+const LOADING_IMG_PATH: &[u8] = include_bytes!("../resource/loading.png");
 
 pub struct AssetManager {
     cur_path: String,
     asset_grid: Arc<Grid>,
     items: BTreeMap<(usize, usize), Arc<AssetItem>>,
-    panel: Panel,
+    panel: Arc<Panel>,
+    // 原则上一个应用程序对应一个Panel和Window
+    // 这里额外创建一个Panel用于Loading图标优先显示
+    // 后续通过Server来显示Loading或不显示Loading
+    loading_panel: Arc<Panel>,
+    init_show: bool,
 }
 
 impl AssetManager {
@@ -34,22 +38,36 @@ impl AssetManager {
                 "Title",
                 Color::rgb(0, 0, 0),
             ),
+            loading_panel: Panel::new(
+                Rect::new(SCREEN_WIDTH as i32 - 64, SCREEN_HEIGHT as i32 - 64, 64, 64),
+                "Loading",
+                Color::rgb(255, 255, 255),
+            ),
+            init_show: true,
         }
     }
 
     pub fn init(&mut self) {
+        self.init_loading_panel();
+
         let grid = self.asset_grid.clone();
-        grid.set_upper_limit(5);
+        grid.set_upper_limit(8);
         grid.set_space(20, 20);
         grid.set_arrange_type(GridArrangeType::Horizontal);
 
         // 处理输入回调
         let self_ptr = self as *mut AssetManager;
         grid.set_enter_callback(move |grid, char, redraw| {
-            if char == '\n' {
-                let asset_manager: &mut AssetManager = unsafe { &mut *self_ptr };
+            let asset_manager: &mut AssetManager = unsafe { &mut *self_ptr };
 
+            if char == '\n' {
                 if let Some(item) = asset_manager.items.get(&grid.focused_id.get().unwrap()) {
+                    // 判断是否是文件夹
+                    if item.is_dir.get() == false {
+                        return;
+                    }
+
+                    // 返回上级目录
                     if item.file_path.borrow().eq(&"..".to_string()) {
                         if asset_manager.cur_path.len() == 1 {
                             return;
@@ -60,6 +78,7 @@ impl AssetManager {
                             let _ = asset_manager.cur_path.split_off(slash_pos + 1);
                         }
                     } else {
+                        // 打开文件夹
                         asset_manager.cur_path.push_str(&item.file_path.borrow());
                         asset_manager.cur_path.push_str(&"/");
                     }
@@ -126,14 +145,21 @@ impl AssetManager {
                     .unwrap(),
             );
 
-            *redraw = true;
+            asset_manager.loading_panel.draw();
+            redraw.set(true);
         });
 
-        self.panel.add_child(&Image::from_image(
+        self.panel.add_child(&Image::new_from_image(
             ImageResource::from_path(DESKTOP_BG_PATH).unwrap(),
         ));
 
         self.panel.add_child(&(self.asset_grid));
+    }
+
+    fn init_loading_panel(&mut self) {
+        self.loading_panel.add_child(&Image::new_from_image(
+            ImageResource::from_path(LOADING_IMG_PATH).unwrap(),
+        ));
     }
 
     pub fn refresh(&mut self) {
@@ -142,9 +168,8 @@ impl AssetManager {
 
         // 父目录
         let parent_asset_item = AssetItem::new("..", true);
-        let (row, col) = self.asset_grid.add(&parent_asset_item);
+        let (row, col) = self.asset_grid.add_element(&parent_asset_item);
         self.items.insert((row, col), parent_asset_item.clone());
-        (*self.asset_grid.borrow_mut()).add_child(parent_asset_item);
 
         // 读取目录中的文件列表
         if let Ok(entries) = fs::read_dir(&self.cur_path) {
@@ -157,9 +182,8 @@ impl AssetManager {
                     };
 
                     let asset_item = AssetItem::new(item.file_name().to_str().unwrap(), is_dir);
-                    let (row, col) = self.asset_grid.add(&asset_item);
+                    let (row, col) = self.asset_grid.add_element(&asset_item);
                     self.items.insert((row, col), asset_item.clone());
-                    (*self.asset_grid.borrow_mut()).add_child(asset_item);
                 }
             }
         } else {
@@ -175,6 +199,11 @@ impl AssetManager {
             grid.focus(widget);
         }
 
+        if self.init_show == true {
+            self.init_show = false
+        } else {
+            self.loading_panel.draw();
+        }
         self.panel.draw();
     }
 

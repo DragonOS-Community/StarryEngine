@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     cell::{Cell, RefCell},
     str::FromStr,
     sync::{Arc, Weak},
@@ -6,10 +7,9 @@ use std::{
 
 use starry_client::base::{color::Color, renderer::Renderer};
 use starry_toolkit::{
-    base::{rect::Rect, vector2::Vector2},
+    base::{panel::Panel, rect::Rect, vector2::Vector2},
     traits::text::Text,
     widgets::{
-        align_rect,
         image::Image,
         label::{Label, LabelOverflowType},
         PivotType, Widget,
@@ -28,10 +28,11 @@ pub struct AssetItem {
     pivot_offset: Cell<Vector2>,
     parent: RefCell<Option<Arc<dyn Widget>>>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
-    panel_rect: Cell<Option<Rect>>,
+    panel: RefCell<Option<Arc<Panel>>>,
     /// 缓存值
     cache_focused: Cell<bool>,
     pub file_path: RefCell<String>,
+    pub is_dir: Cell<bool>,
 }
 
 impl AssetItem {
@@ -46,15 +47,17 @@ impl AssetItem {
             pivot_offset: Cell::new(Vector2::new(0, 0)),
             children: RefCell::new(Vec::new()),
             parent: RefCell::new(None),
-            panel_rect: Cell::new(None),
+            panel: RefCell::new(None),
             cache_focused: Cell::new(false),
             file_path: RefCell::new(String::from_str(file_name).unwrap()),
+            is_dir: Cell::new(is_dir),
         });
 
         (*item.self_ref.borrow_mut()) = Arc::downgrade(&item);
 
         // 背景Image
-        let bg = Image::from_color(Self::ITEM_WIDTH, Self::ITEM_HEIGHT, Color::rgba(0, 0, 0, 0));
+        let bg =
+            Image::new_from_color(Self::ITEM_WIDTH, Self::ITEM_HEIGHT, Color::rgba(0, 0, 0, 0));
         bg.set_pivot_type(PivotType::Center);
         item.add_child(bg);
 
@@ -63,7 +66,7 @@ impl AssetItem {
             true => ImageResource::from_path(DIR_ICON_PATH),
             false => ImageResource::from_path(FILE_ICON_PATH),
         } {
-            let icon = Image::from_image(icon);
+            let icon = Image::new_from_image(icon);
             icon.set_pivot_type(PivotType::Top);
             item.add_child(icon);
         }
@@ -84,6 +87,10 @@ impl AssetItem {
 impl Widget for AssetItem {
     fn self_ref(&self) -> Arc<dyn Widget> {
         self.self_ref.borrow().upgrade().unwrap()
+    }
+
+    fn as_any_ref(&self) -> &dyn Any {
+        self
     }
 
     fn name(&self) -> &str {
@@ -110,8 +117,8 @@ impl Widget for AssetItem {
         &self.children
     }
 
-    fn panel_rect(&self) -> &Cell<Option<Rect>> {
-        &self.panel_rect
+    fn panel(&self) -> &RefCell<Option<Arc<Panel>>> {
+        &self.panel
     }
 
     fn draw(&self, renderer: &mut dyn Renderer, focused: bool) {
@@ -119,27 +126,17 @@ impl Widget for AssetItem {
             self.cache_focused.set(focused);
 
             // 如果当前被选中，则背景高亮
-            let mut children = self.children.borrow_mut();
+            let children = self.children.borrow_mut();
+            let bg_image = children[0].self_ref();
+            let bg_image = bg_image
+                .as_any_ref()
+                .downcast_ref::<Image>()
+                .expect("[Error] AssetItem failed to cast widget to image");
             if focused {
-                children[0] = Image::from_color(
-                    Self::ITEM_WIDTH,
-                    Self::ITEM_HEIGHT,
-                    Color::rgba(0, 255, 255, 64),
-                );
+                bg_image.set_from_color(Color::rgba(0, 255, 255, 64));
             } else {
-                children[0] =
-                    Image::from_color(Self::ITEM_WIDTH, Self::ITEM_HEIGHT, Color::rgba(0, 0, 0, 0));
+                bg_image.set_from_color(Color::rgba(0, 0, 0, 0));
             }
-
-            // TODO
-            // children[0].set_pivot_type(PivotType::Center);
-
-            children[0].rect().set(align_rect(
-                children[0].rect().get(),
-                self.rect.get(),
-                PivotType::Center,
-                Vector2::new(0, 0),
-            ))
         }
 
         for child in self.children.borrow().iter() {

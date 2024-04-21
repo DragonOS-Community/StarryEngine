@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     cell::{Cell, RefCell},
     cmp::max,
     sync::{Arc, Weak},
@@ -7,11 +8,12 @@ use std::{
 use starry_client::base::{color::Color, renderer::Renderer};
 
 use crate::{
-    base::{rect::Rect, vector2::Vector2},
+    base::{panel::Panel, rect::Rect, vector2::Vector2},
     traits::text::Text,
+    util::{align_rect, get_local_rect},
 };
 
-use super::{align_rect, PivotType, Widget};
+use super::{PivotType, Widget};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum LabelOverflowType {
@@ -26,12 +28,12 @@ pub enum LabelOverflowType {
 
 pub struct Label {
     self_ref: RefCell<Weak<Label>>,
-    pub rect: Cell<Rect>,
+    rect: Cell<Rect>,
     pivot: Cell<PivotType>,
     pivot_offset: Cell<Vector2>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
     parent: RefCell<Option<Arc<dyn Widget>>>,
-    panel_rect: Cell<Option<Rect>>,
+    panel: RefCell<Option<Arc<Panel>>>,
     /// 实际上的文本
     real_text: RefCell<String>,
     /// 用于显示的文本
@@ -53,7 +55,7 @@ impl Label {
             pivot_offset: Cell::new(Vector2::new(0, 0)),
             children: RefCell::new(vec![]),
             parent: RefCell::new(None),
-            panel_rect: Cell::new(None),
+            panel: RefCell::new(None),
             real_text: RefCell::new(String::new()),
             show_text: RefCell::new(String::new()),
             text_color: Cell::new(Color::rgb(0, 0, 0)), // 默认黑色字体
@@ -109,6 +111,10 @@ impl Widget for Label {
         self.self_ref.borrow().upgrade().unwrap() as Arc<dyn Widget>
     }
 
+    fn as_any_ref(&self) -> &dyn Any {
+        self
+    }
+
     fn name(&self) -> &str {
         "Label"
     }
@@ -133,8 +139,8 @@ impl Widget for Label {
         &self.children
     }
 
-    fn panel_rect(&self) -> &Cell<Option<Rect>> {
-        &self.panel_rect
+    fn panel(&self) -> &RefCell<Option<Arc<crate::base::panel::Panel>>> {
+        &self.panel
     }
 
     fn draw(&self, renderer: &mut dyn Renderer, _focused: bool) {
@@ -158,8 +164,16 @@ impl Widget for Label {
                 if current_rect.x + 8 <= origin_rect.x + origin_rect.width as i32
                     && current_rect.y + 16 <= origin_rect.y + origin_rect.height as i32
                 {
-                    // TODO 应用主题(Theme)颜色
-                    renderer.char(current_rect.x, current_rect.y, char, self.text_color.get());
+                    if self.panel().borrow().is_some() {
+                        let local_rect = get_local_rect(
+                            current_rect,
+                            self.panel().borrow().clone().unwrap().rect(),
+                        );
+                        // TODO 应用主题(Theme)颜色
+                        renderer.char(local_rect.x, local_rect.y, char, self.text_color.get());
+                    } else {
+                        println!("[Error] Label do not belong to any panel!");
+                    }
                 }
                 current_rect.x += 8;
             }

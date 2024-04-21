@@ -389,8 +389,8 @@ pub trait Renderer {
     /// 在指定位置绘制字符
     ///
     /// ## 参数
-    /// - x: x坐标
-    /// - y: y坐标
+    /// - x: x坐标(局部坐标)
+    /// - y: y坐标(局部坐标)
     /// - c: 待绘制的字符
     /// - color: 字符颜色
     fn char(&mut self, x: i32, y: i32, c: char, color: Color) {
@@ -416,8 +416,8 @@ pub trait Renderer {
     /// 在指定位置绘制一幅图像至帧缓冲区
     ///
     /// ## 参数
-    /// - start_x: 起始x坐标(左上角)
-    /// - start_y: 起始y坐标(左上角)
+    /// - start_x: 起始x坐标(局部坐标)
+    /// - start_y: 起始y坐标(局部坐标)
     /// - w: 图像宽度
     /// - h: 图像高度
     /// - data: 图像数据

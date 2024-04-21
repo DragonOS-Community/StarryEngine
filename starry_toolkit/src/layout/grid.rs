@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     cell::{Cell, RefCell},
     collections::BTreeMap,
     sync::{Arc, Weak},
@@ -7,7 +8,7 @@ use std::{
 use starry_client::base::renderer::Renderer;
 
 use crate::{
-    base::{event::Event, rect::Rect, vector2::Vector2},
+    base::{event::Event, panel::Panel, rect::Rect, vector2::Vector2},
     traits::{enter::Enter, focus::Focus},
     widgets::{PivotType, Widget},
 };
@@ -21,14 +22,15 @@ pub enum GridArrangeType {
     Vertical,
 }
 
+// TODO 所有字段限制为私有
 pub struct Grid {
     self_ref: RefCell<Weak<Grid>>,
-    pub rect: Cell<Rect>,
+    rect: Cell<Rect>,
     pivot: Cell<PivotType>,
     pivot_offset: Cell<Vector2>,
     children: RefCell<Vec<Arc<dyn Widget>>>,
     parent: RefCell<Option<Arc<dyn Widget>>>,
-    panel_rect: Cell<Option<Rect>>,
+    panel: RefCell<Option<Arc<Panel>>>,
     /// x坐标间隔
     space_x: Cell<i32>,
     /// y坐标间隔
@@ -36,9 +38,9 @@ pub struct Grid {
     /// 每行/列的最大元素数
     upper_limit: Cell<usize>,
     /// 当前行数
-    pub current_row: Cell<usize>,
+    current_row: Cell<usize>,
     /// 当前列数
-    pub current_column: Cell<usize>,
+    current_column: Cell<usize>,
     /// 当前最大行数
     pub max_row: Cell<usize>,
     /// 当前最大列数
@@ -52,7 +54,7 @@ pub struct Grid {
     /// 优先排列方式
     arrange_type: Cell<GridArrangeType>,
     /// 键盘输入回调
-    enter_callback: RefCell<Option<Arc<dyn Fn(&Self, char, &mut bool)>>>,
+    enter_callback: RefCell<Option<Arc<dyn Fn(&Self, char, &Cell<bool>)>>>,
 }
 
 impl Grid {
@@ -64,7 +66,7 @@ impl Grid {
             pivot_offset: Cell::new(Vector2::new(0, 0)),
             children: RefCell::new(vec![]),
             parent: RefCell::new(None),
-            panel_rect: Cell::new(None),
+            panel: RefCell::new(None),
             space_x: Cell::new(0),
             space_y: Cell::new(0),
             upper_limit: Cell::new(0),
@@ -95,7 +97,9 @@ impl Grid {
         self
     }
 
-    pub fn add<T: Widget>(&self, element: &Arc<T>) -> (usize, usize) {
+    pub fn add_element<T: Widget>(&self, element: &Arc<T>) -> (usize, usize) {
+        self.add_child(element.self_ref());
+
         self.find_next_slot();
         self.elements.borrow_mut().insert(
             (self.current_row.get(), self.current_column.get()),
@@ -141,6 +145,7 @@ impl Grid {
             .borrow_mut()
             .insert((row, column), element.clone());
 
+        self.add_child(element.self_ref());
         self.arrange_elements(false);
     }
 
@@ -239,6 +244,10 @@ impl Widget for Grid {
         self.self_ref.borrow().upgrade().unwrap()
     }
 
+    fn as_any_ref(&self) -> &dyn Any {
+        self
+    }
+
     fn name(&self) -> &str {
         "Grid"
     }
@@ -263,8 +272,8 @@ impl Widget for Grid {
         &self.children
     }
 
-    fn panel_rect(&self) -> &Cell<Option<Rect>> {
-        &self.panel_rect
+    fn panel(&self) -> &RefCell<Option<Arc<Panel>>> {
+        &self.panel
     }
 
     fn draw(&self, renderer: &mut dyn Renderer, _focused: bool) {
@@ -278,8 +287,8 @@ impl Widget for Grid {
         &self,
         event: Event,
         _focused: bool,
-        redraw: &mut bool,
-        caught: &mut bool,
+        redraw: &Cell<bool>,
+        caught: &Cell<bool>,
     ) -> bool {
         match event {
             Event::KeyPressed { character, .. } => {
@@ -287,7 +296,7 @@ impl Widget for Grid {
                     self.emit_enter(character, redraw);
                 }
 
-                *caught = true;
+                caught.set(true);
             }
             // TODO
             _ => {}
@@ -313,13 +322,13 @@ impl Focus for Grid {
 }
 
 impl Enter for Grid {
-    fn emit_enter(&self, char: char, redraw: &mut bool) {
+    fn emit_enter(&self, char: char, redraw: &Cell<bool>) {
         if let Some(ref enter_callback) = *self.enter_callback.borrow() {
             enter_callback(self, char, redraw);
         }
     }
 
-    fn set_enter_callback<T: Fn(&Self, char, &mut bool) + 'static>(&self, func: T) {
+    fn set_enter_callback<T: Fn(&Self, char, &Cell<bool>) + 'static>(&self, func: T) {
         (*self.enter_callback.borrow_mut()) = Some(Arc::new(func));
     }
 }
