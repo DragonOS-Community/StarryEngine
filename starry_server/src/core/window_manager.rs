@@ -1,7 +1,8 @@
 use std::{
+    cell::{Cell, RefCell},
     cmp,
     collections::{BTreeMap, VecDeque},
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use starry_client::base::event::{Event, EventOption, MouseRelativeEvent, MouseUpdateEvent};
@@ -45,49 +46,41 @@ pub enum CursorKind {
 /// 窗口管理器
 #[allow(dead_code)]
 pub struct WindowManager {
-    /// 数据锁
-    pub data: RwLock<WindowManagerData>,
-}
-
-#[allow(dead_code)]
-pub struct WindowManagerData {
     /// 下一个窗口的id值
-    next_id: isize,
+    next_id: Cell<isize>,
     /// TODO
-    _hover: Option<usize>,
+    _hover: RefCell<Option<usize>>,
     /// 窗口顺序
-    pub order: VecDeque<usize>,
+    pub order: RefCell<VecDeque<usize>>,
     /// 窗口顺序信息(下标index，模式，窗口id)
-    pub zbuffer: Vec<(usize, WindowZOrderMode, usize)>,
+    pub zbuffer: RefCell<Vec<(usize, WindowZOrderMode, usize)>>,
     /// 窗口字典
-    pub windows: BTreeMap<usize, Window>,
+    pub windows: RefCell<BTreeMap<usize, Window>>,
 
     /// 鼠标x坐标
-    pub cursor_x: i32,
+    pub cursor_x: Cell<i32>,
     /// 鼠标y坐标
-    pub cursor_y: i32,
+    pub cursor_y: Cell<i32>,
     /// 鼠标状态
-    pub cursor_i: CursorKind,
+    pub cursor_i: Cell<CursorKind>,
 
     /// 待处理的事件数组
-    events: Vec<Event>,
+    events: RefCell<Vec<Event>>,
 }
 
 impl WindowManager {
     /// 创建窗口管理器
     pub fn new() {
         let window_manager = WindowManager {
-            data: RwLock::new(WindowManagerData {
-                next_id: 0,
-                _hover: None,
-                order: VecDeque::new(),
-                zbuffer: Vec::new(),
-                windows: BTreeMap::new(),
-                cursor_x: SCREEN_WIDTH as i32 / 2,
-                cursor_y: SCREEN_HEIGHT as i32 / 2,
-                cursor_i: CursorKind::None,
-                events: Vec::new(),
-            }),
+            next_id: Cell::new(0),
+            _hover: RefCell::new(None),
+            order: RefCell::new(VecDeque::new()),
+            zbuffer: RefCell::new(Vec::new()),
+            windows: RefCell::new(BTreeMap::new()),
+            cursor_x: Cell::new(SCREEN_WIDTH as i32 / 2),
+            cursor_y: Cell::new(SCREEN_HEIGHT as i32 / 2),
+            cursor_i: Cell::new(CursorKind::Normal),
+            events: RefCell::new(Vec::new()),
         };
 
         unsafe {
@@ -120,77 +113,62 @@ impl WindowManager {
         _title: String,
         image_path: &[u8],
     ) {
-        let mouse_update_event: MouseUpdateEvent;
+        let compositor = compositor().unwrap();
 
-        {
-            let compositor = compositor().unwrap();
-            let mut guard = self.data.write().unwrap();
+        let id = self.next_id.get() as usize; // 新窗口的id
+        self.next_id.set(self.next_id.get() + 1);
 
-            let id = guard.next_id as usize; // 新窗口的id
-            guard.next_id += 1;
-
-            if guard.next_id < 0 {
-                guard.next_id = 1;
-            }
-
-            if x < 0 && y < 0 {
-                x = cmp::max(0, (SCREEN_WIDTH as i32 - width) / 2);
-                y = cmp::max(0, (SCREEN_HEIGHT as i32 - height) / 2);
-            }
-
-            // TODO 传入正确的scale
-            // TODO 传入title
-            let window = Window::new(x, y, width, height, 1, image_path);
-
-            // TODO 处理flags
-
-            // TODO 重绘title_rect
-            compositor.request_redraw(window.rect());
-
-            match window.zorder {
-                WindowZOrderMode::Front | WindowZOrderMode::Normal => {
-                    guard.order.push_front(id);
-                }
-                WindowZOrderMode::Back => {
-                    guard.order.push_back(id);
-                }
-            }
-
-            guard.windows.insert(id, window);
-
-            // 确保鼠标正确显示
-            mouse_update_event = MouseUpdateEvent {
-                x: guard.cursor_x,
-                y: guard.cursor_y,
-            };
+        if self.next_id.get() < 0 {
+            self.next_id.set(1);
         }
+
+        if x < 0 && y < 0 {
+            x = cmp::max(0, (SCREEN_WIDTH as i32 - width) / 2);
+            y = cmp::max(0, (SCREEN_HEIGHT as i32 - height) / 2);
+        }
+
+        // TODO 传入正确的scale
+        // TODO 传入title
+        let window = Window::new(x, y, width, height, 1, image_path);
+
+        // TODO 处理flags
+
+        // TODO 重绘title_rect
+        compositor.request_redraw(window.rect());
+
+        match window.zorder {
+            WindowZOrderMode::Front | WindowZOrderMode::Normal => {
+                self.order.borrow_mut().push_front(id);
+            }
+            WindowZOrderMode::Back => {
+                self.order.borrow_mut().push_back(id);
+            }
+        }
+
+        self.windows.borrow_mut().insert(id, window);
+
+        // 确保鼠标正确显示
+        let mouse_update_event = MouseUpdateEvent {
+            x: self.cursor_x.get(),
+            y: self.cursor_y.get(),
+        };
 
         self.handle_mouse_update_event(mouse_update_event);
     }
 
     /// 发送事件
     pub fn send_event(&self, event: Event) {
-        let mut guard = self.data.write().unwrap();
-        guard.events.push(event);
+        self.events.borrow_mut().push(event);
     }
 
     /// 发送事件数组
     pub fn send_events(&self, mut events: Vec<Event>) {
-        let mut guard = self.data.write().unwrap();
-        guard.events.append(&mut events);
+        self.events.borrow_mut().append(&mut events);
     }
 
     /// 处理所有事件
     pub fn handle_all_events(&self) {
-        let mut events: Vec<Event>;
-
-        {
-            let mut guard = self.data.write().unwrap();
-            events = guard.events.clone();
-            guard.events.clear();
-        }
-
-        while let Some(event) = events.pop() {
+        while let Some(event) = self.events.borrow_mut().pop() {
             self.handle_event(event);
         }
     }
@@ -213,15 +191,6 @@ impl WindowManager {
     pub fn handle_mouse_relative_event(&self, event: MouseRelativeEvent) {
         // TODO: 将事件传递给窗口，同时考虑窗口对鼠标位置的影响
 
-        let cursor_x: i32;
-        let cursor_y: i32;
-
-        {
-            let guard = self.data.read().unwrap();
-            cursor_x = guard.cursor_x;
-            cursor_y = guard.cursor_y;
-        }
-
         let max_x: i32 = SCREEN_WIDTH as i32;
         let max_y: i32 = SCREEN_HEIGHT as i32;
         let cursor_rect = self.cursor_rect();
@@ -229,11 +198,11 @@ impl WindowManager {
         //防止鼠标出界
         let x = cmp::max(
             0,
-            cmp::min(max_x - cursor_rect.width(), cursor_x + event.dx),
+            cmp::min(max_x - cursor_rect.width(), self.cursor_x.get() + event.dx),
         );
         let y = cmp::max(
             0,
-            cmp::min(max_y - cursor_rect.height(), cursor_y - event.dy),
+            cmp::min(max_y - cursor_rect.height(), self.cursor_y.get() - event.dy),
         ); // 原点在左上角，向上为负
 
         self.handle_mouse_update_event(MouseUpdateEvent { x, y });
@@ -259,27 +228,13 @@ impl WindowManager {
     fn update_cursor(&self, x: i32, y: i32, kind: CursorKind) {
         // println!("[Info] Mouse_Input_Handler update cursor {:?} {:?} ", x, y);
 
-        let old_cursor_x: i32;
-        let old_cursor_y: i32;
-        let old_cursor_i: CursorKind;
-
-        {
-            let guard = self.data.read().unwrap();
-            old_cursor_x = guard.cursor_x;
-            old_cursor_y = guard.cursor_y;
-            old_cursor_i = guard.cursor_i;
-        }
-
-        if kind != old_cursor_i || x != old_cursor_x || y != old_cursor_y {
+        if kind != self.cursor_i.get() || x != self.cursor_x.get() || y != self.cursor_y.get() {
             let cursor_rect = self.cursor_rect();
             compositor().unwrap().request_redraw(cursor_rect);
 
-            {
-                let mut guard = self.data.write().unwrap();
-                guard.cursor_x = x;
-                guard.cursor_y = y;
-                guard.cursor_i = kind;
-            }
+            self.cursor_i.set(kind);
+            self.cursor_x.set(x);
+            self.cursor_y.set(y);
 
             let cursor_rect = self.cursor_rect();
             compositor().unwrap().request_redraw(cursor_rect);
@@ -289,40 +244,37 @@ impl WindowManager {
     /// # 函数功能
     /// 获得鼠标位置的矩形区域
     pub fn cursor_rect(&self) -> Rect {
-        let guard = self.data.read().unwrap();
         let server = starry_server().unwrap();
-        let server_gaurd = server.data.read().unwrap();
 
-        if let Some(image) = server_gaurd.cursors.get(&guard.cursor_i) {
+        if let Some(image) = server.cursors.borrow().get(&self.cursor_i.get()) {
             return Rect::new(
-                guard.cursor_x,
-                guard.cursor_y,
+                self.cursor_x.get(),
+                self.cursor_y.get(),
                 image.width(),
                 image.height(),
             );
         }
 
-        return Rect::new(guard.cursor_x, guard.cursor_y, 0, 0);
+        return Rect::new(self.cursor_x.get(), self.cursor_y.get(), 0, 0);
     }
 
     /// 更新zbuffer
     pub fn rezbuffer(&self) {
-        let mut guard = self.data.write().unwrap();
+        self.zbuffer.borrow_mut().clear();
 
-        guard.zbuffer.clear();
-
-        let len = guard.order.len();
-        for index in 0..len {
-            let id = guard.order[index];
-            let window_z = guard
+        let order = self.order.borrow_mut();
+        for index in 0..order.len() {
+            let id = order[index];
+            let window_z = self
                 .windows
+                .borrow()
                 .get(&index)
                 .expect("窗口不存在!")
                 .zorder
                 .clone();
-            guard.zbuffer.push((id, window_z, index));
+            self.zbuffer.borrow_mut().push((id, window_z, index));
         }
 
-        guard.zbuffer.sort_by(|a, b| b.1.cmp(&a.1));
+        self.zbuffer.borrow_mut().sort_by(|a, b| b.1.cmp(&a.1));
     }
 }

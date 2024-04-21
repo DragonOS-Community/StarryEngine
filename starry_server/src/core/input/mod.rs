@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::Read,
-    sync::{Arc, RwLock},
-};
+use std::{cell::RefCell, fs::File, io::Read, sync::Arc};
 
 use starry_client::base::event::Event;
 
@@ -21,13 +17,8 @@ pub fn input_manager() -> Option<Arc<InputManager>> {
 /// 输入管理器
 #[allow(dead_code)]
 pub struct InputManager {
-    /// 数据锁
-    data: RwLock<InputManagerData>,
-}
-
-pub struct InputManagerData {
     /// 轮询的文件数组
-    handlers: Vec<Box<dyn InputHandler>>,
+    handlers: RefCell<Vec<Box<dyn InputHandler>>>,
 }
 
 impl InputManager {
@@ -38,9 +29,7 @@ impl InputManager {
         input_handlers.push(MouseInputHandler::new() as Box<dyn InputHandler>);
         // TODO: 处理键盘输入
         let input_manager = InputManager {
-            data: RwLock::new(InputManagerData {
-                handlers: input_handlers,
-            }),
+            handlers: RefCell::new(input_handlers),
         };
 
         unsafe {
@@ -53,8 +42,7 @@ impl InputManager {
     /// 轮询所有输入设备
     pub fn polling_all(&self) {
         // println!("[Info] Input_Manager polling all");
-        let mut guard = self.data.write().unwrap();
-        for handle in guard.handlers.iter_mut() {
+        for handle in self.handlers.borrow_mut().iter_mut() {
             handle.polling();
         }
     }
