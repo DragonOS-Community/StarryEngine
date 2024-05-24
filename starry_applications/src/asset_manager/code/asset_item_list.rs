@@ -49,8 +49,11 @@ impl AssetItemList {
         (*item.self_ref.borrow_mut()) = Arc::downgrade(&item);
 
         // 背景Image
-        let bg =
-            Image::new_from_color(Self::ITEM_WIDTH, Self::ITEM_HEIGHT, Color::rgba(0, 255, 255, 64));
+        let bg = Image::new_from_color(
+            Self::ITEM_WIDTH,
+            Self::ITEM_HEIGHT,
+            Color::rgba(0, 255, 255, 64),
+        );
         bg.set_pivot_type(PivotType::Center);
         item.add_child(bg);
 

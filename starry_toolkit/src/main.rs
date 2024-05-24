@@ -1,9 +1,9 @@
 use starry_client::base::color::Color;
 use starry_server::core::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use starry_toolkit::base::{
-        panel::{Panel, PanelRendererMode},
-        rect::Rect,
-    };
+    panel::{Panel, PanelRendererMode},
+    rect::Rect,
+};
 use starry_toolkit::{
     layout::grid::{Grid, GridArrangeType},
     widgets::image::Image,

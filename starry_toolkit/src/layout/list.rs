@@ -157,11 +157,10 @@ impl List {
             element.set_pivot_offset(align_vector);
             element.arrange_all();
 
-            match self.arrange_type.get()
-            {
+            match self.arrange_type.get() {
                 ListArrangeType::Horizontal => {
                     x_offset += element.rect().get().width + self.space.get();
-                },
+                }
                 ListArrangeType::Vertical => {
                     y_offset += element.rect().get().height + self.space.get();
                 }
