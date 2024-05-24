@@ -15,6 +15,7 @@ use crate::{
 pub mod image;
 pub mod label;
 
+/// 控件对齐类型
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum PivotType {
     /// 不进行对齐 pivot_offset即为世界坐标

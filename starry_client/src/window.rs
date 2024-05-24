@@ -33,14 +33,12 @@ pub struct Window {
     h: u32,
     /// 窗口的标题
     title: String,
-    /// TODO
-    // window_async: bool,
     /// 窗口是否大小可变
     resizable: bool,
     /// 窗口的渲染模式
     mode: Cell<RenderMode>,
-    // TODO
-    // file_opt: Option<File>,
+    // 命名管道文件
+    file_opt: Option<File>,
     // TODO: 改定长数组
     // data_opt: Option<& 'static mut [Color]>,
     /// 窗口的渲染数据
@@ -105,7 +103,7 @@ impl Window {
             // window_async: false,
             resizable: false,
             mode: Cell::new(RenderMode::Blend),
-            // file_opt: None,
+            file_opt: None,
             data_opt: Some(vec![color; (w * h) as usize].into_boxed_slice()),
             fb_file: File::open(FB_FILE_PATH).expect("[Error] Window failed to open fb file"),
         }

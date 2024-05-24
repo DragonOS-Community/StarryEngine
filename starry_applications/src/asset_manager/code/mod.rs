@@ -1,8 +1,10 @@
-use self::asset_item::AssetItem;
+use self::asset_item_grid::AssetItemGrid;
+use self::asset_item_list::AssetItemList;
 use crate::starry_toolkit::traits::focus::Focus;
 use starry_client::base::color::Color;
 use starry_server::base::image::Image as ImageResource;
 use starry_server::core::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use starry_toolkit::layout::list::{List, ListArrangeType};
 use starry_toolkit::{
     base::{panel::Panel, rect::Rect},
     layout::grid::{Grid, GridArrangeType},
@@ -10,7 +12,8 @@ use starry_toolkit::{
     widgets::image::Image,
 };
 use std::{collections::BTreeMap, fs, sync::Arc};
-pub mod asset_item;
+pub mod asset_item_grid;
+pub mod asset_item_list;
 
 const DESKTOP_BG_PATH: &[u8] = include_bytes!("../resource/desktop_bg.png");
 const LOADING_IMG_PATH: &[u8] = include_bytes!("../resource/loading.png");
@@ -18,7 +21,8 @@ const LOADING_IMG_PATH: &[u8] = include_bytes!("../resource/loading.png");
 pub struct AssetManager {
     cur_path: String,
     asset_grid: Arc<Grid>,
-    items: BTreeMap<(usize, usize), Arc<AssetItem>>,
+    asset_list: Arc<List>,
+    items: BTreeMap<(usize, usize), Arc<AssetItemGrid>>,
     panel: Arc<Panel>,
     // 原则上一个应用程序对应一个Panel和Window
     // 这里额外创建一个Panel用于Loading图标优先显示
@@ -32,6 +36,7 @@ impl AssetManager {
         AssetManager {
             cur_path: String::from("/"),
             asset_grid: Grid::new(),
+            asset_list: List::new(),
             items: BTreeMap::new(),
             panel: Panel::new(
                 Rect::new(0, 0, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32),
@@ -47,7 +52,7 @@ impl AssetManager {
         }
     }
 
-    pub fn init(&mut self) {
+    pub fn init_grid(&mut self) {
         self.init_loading_panel();
 
         let grid = self.asset_grid.clone();
@@ -82,7 +87,7 @@ impl AssetManager {
                         asset_manager.cur_path.push_str(&item.file_path.borrow());
                         asset_manager.cur_path.push_str(&"/");
                     }
-                    asset_manager.refresh();
+                    asset_manager.refresh_grid();
                 }
 
                 return;
@@ -154,6 +159,22 @@ impl AssetManager {
         ));
 
         self.panel.add_child(&(self.asset_grid));
+        // self.panel.set_renderer_mode(PanelRendererMode::WithWireframe);
+    }
+
+    pub fn init_list(&mut self) {
+        self.init_loading_panel();
+
+        let list = self.asset_list.clone();
+        list.set_arrange_type(ListArrangeType::Vertical);
+        list.set_space(3);
+
+        self.panel.add_child(&Image::new_from_image(
+            ImageResource::from_path(DESKTOP_BG_PATH).unwrap(),
+        ));
+
+        self.panel.add_child(&(self.asset_list));
+        // self.panel.set_renderer_mode(PanelRendererMode::WithWireframe);
     }
 
     fn init_loading_panel(&mut self) {
@@ -162,12 +183,12 @@ impl AssetManager {
         ));
     }
 
-    pub fn refresh(&mut self) {
+    pub fn refresh_grid(&mut self) {
         self.items.clear();
         self.asset_grid.clear();
 
         // 父目录
-        let parent_asset_item = AssetItem::new("..", true);
+        let parent_asset_item = AssetItemGrid::new("..", true);
         let (row, col) = self.asset_grid.add_element(&parent_asset_item);
         self.items.insert((row, col), parent_asset_item.clone());
 
@@ -181,7 +202,7 @@ impl AssetManager {
                         false
                     };
 
-                    let asset_item = AssetItem::new(item.file_name().to_str().unwrap(), is_dir);
+                    let asset_item = AssetItemGrid::new(item.file_name().to_str().unwrap(), is_dir);
                     let (row, col) = self.asset_grid.add_element(&asset_item);
                     self.items.insert((row, col), asset_item.clone());
                 }
@@ -197,6 +218,42 @@ impl AssetManager {
         if let Some(widget) = grid.elements.borrow().get(&(0, 0)) {
             grid.focused_id.set(Some((0, 0)));
             grid.focus(widget);
+        }
+
+        if self.init_show == true {
+            self.init_show = false
+        } else {
+            self.loading_panel.draw();
+        }
+        self.panel.draw();
+    }
+
+    pub fn refresh_list(&mut self) {
+        self.items.clear();
+
+        // 父目录
+        // let parent_asset_item = AssetItem_List::new("..", true);
+        // let _index= self.asset_list.add_element(&parent_asset_item);
+
+        // 读取目录中的文件列表
+        if let Ok(entries) = fs::read_dir(&self.cur_path) {
+            for entry in entries {
+                if let Ok(item) = entry {
+                    let is_dir = if let Ok(metadata) = item.metadata() {
+                        metadata.is_dir()
+                    } else {
+                        false
+                    };
+
+                    let asset_item = AssetItemList::new(item.file_name().to_str().unwrap(), is_dir);
+                    let _index = self.asset_list.add_element(&asset_item);
+                }
+            }
+        } else {
+            println!(
+                "[Error] AssetManager failed to read dir {:?}",
+                self.cur_path
+            );
         }
 
         if self.init_show == true {

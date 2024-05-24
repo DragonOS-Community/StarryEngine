@@ -74,13 +74,158 @@ pub trait Renderer {
         }
     }
 
+    /// # 函数功能
+    /// 在指定位置绘制字符
+    ///
+    /// ## 参数
+    /// - x: x坐标(局部坐标)
+    /// - y: y坐标(局部坐标)
+    /// - c: 待绘制的字符
+    /// - color: 字符颜色
+    fn char(&mut self, x: i32, y: i32, c: char, color: Color) {
+        let mut offset = (c as usize) * 16;
+        for row in 0..16 {
+            let row_data = if offset < FONT_ASSET.len() {
+                FONT_ASSET[offset]
+            } else {
+                0
+            };
+
+            for col in 0..8 {
+                let pixel = (row_data >> (7 - col)) & 1;
+                if pixel > 0 {
+                    self.pixel(x + col, y + row, color);
+                }
+            }
+            offset += 1;
+        }
+    }
+
+    /// # 函数功能
+    /// 在指定位置绘制一幅图像至帧缓冲区
+    ///
+    /// ## 参数
+    /// - start_x: 起始x坐标(局部坐标)
+    /// - start_y: 起始y坐标(局部坐标)
+    /// - w: 图像宽度
+    /// - h: 图像高度
+    /// - data: 图像数据
+    fn image(&mut self, start_x: i32, start_y: i32, w: u32, h: u32, data: &[Color]) {
+        match self.mode().get() {
+            RenderMode::Blend => self.image_fast(start_x, start_y, w, h, data),
+            RenderMode::Overwrite => self.image_opaque(start_x, start_y, w, h, data),
+        }
+    }
+
+    /// # 函数功能
+    /// 从指定行开始绘制一幅图像至帧缓冲区
+    ///
+    /// ## 参数
+    /// - start: 起始行数
+    /// - image_data: 图像帧缓冲数据
+    fn image_over(&mut self, start: i32, image_data: &[Color]) {
+        let start = start as usize * self.width() as usize;
+        let window_data = self.data_mut();
+        let stop = cmp::min(start + image_data.len(), window_data.len());
+        let end = cmp::min(image_data.len(), window_data.len() - start);
+
+        window_data[start..stop].copy_from_slice(&image_data[..end]);
+    }
+
+    ///Display an image using non transparent method
+    /// TODO 注释补充
+    #[inline(always)]
+    fn image_opaque(&mut self, start_x: i32, start_y: i32, w: u32, h: u32, image_data: &[Color]) {
+        let w = w as usize;
+        let mut h = h as usize;
+        let width = self.width() as usize;
+        let height = self.height() as usize;
+        let start_x = start_x as usize;
+        let start_y = start_y as usize;
+
+        //check boundaries
+        if start_x >= width || start_y >= height {
+            return;
+        }
+        if h + start_y > height {
+            h = height - start_y;
+        }
+        let window_data = self.data_mut();
+        let offset = start_y * width + start_x;
+        //copy image slices to window line by line
+        for l in 0..h {
+            let start = offset + l * width;
+            let mut stop = start + w;
+            let begin = l * w;
+            let mut end = begin + w;
+            //check boundaries
+            if start_x + w > width {
+                stop = (start_y + l + 1) * width - 1;
+                end = begin + stop - start;
+            }
+            window_data[start..stop].copy_from_slice(&image_data[begin..end]);
+        }
+    }
+
+    /// Speed improved, image can be outside of window boundary
+    /// TODO 注释补充
+    #[inline(always)]
+    fn image_fast(&mut self, start_x: i32, start_y: i32, w: u32, h: u32, image_data: &[Color]) {
+        let w = w as usize;
+        let h = h as usize;
+        let width = self.width() as usize;
+        let start_x = start_x as usize;
+        let start_y = start_y as usize;
+
+        //simply return if image is outside of window
+        if start_x >= width || start_y >= self.height() as usize {
+            return;
+        }
+        let window_data = self.data_mut();
+        let offset = start_y * width + start_x;
+
+        //copy image slices to window line by line
+        for l in 0..h {
+            let start = offset + l * width;
+            let mut stop = start + w;
+            let begin = l * w;
+            let end = begin + w;
+
+            //check boundaries
+            if start_x + w > width {
+                stop = (start_y + l + 1) * width;
+            }
+            let mut k = 0;
+            for i in begin..end {
+                if i < image_data.len() {
+                    let new = image_data[i].data;
+                    let alpha = (new >> 24) & 0xFF;
+                    if alpha > 0 && (start + k) < window_data.len() && (start + k) < stop {
+                        let old = &mut window_data[start + k].data;
+                        if alpha >= 255 {
+                            *old = new;
+                        } else {
+                            let n_alpha = 255 - alpha;
+                            let rb = ((n_alpha * (*old & 0x00FF00FF))
+                                + (alpha * (new & 0x00FF00FF)))
+                                >> 8;
+                            let ag = (n_alpha * ((*old & 0xFF00FF00) >> 8))
+                                + (alpha * (0x01000000 | ((new & 0x0000FF00) >> 8)));
+
+                            *old = (rb & 0x00FF00FF) | (ag & 0xFF00FF00);
+                        }
+                    }
+                    k += 1;
+                }
+            }
+        }
+    }
     /// TODO 注释补充
     fn arc(&mut self, x0: i32, y0: i32, radius: i32, parts: u8, color: Color) {
         let mut x = radius.abs();
         let mut y = 0;
         let mut err = 0;
 
-        // https://github.com/rust-lang/rust-clippy/issues/5354
         while x >= y {
             if radius < 0 {
                 if parts & 1 << 0 != 0 {
@@ -383,152 +528,5 @@ pub trait Renderer {
             return Color::rgb(0, 0, 0);
         }
         return self.data()[p];
-    }
-
-    /// # 函数功能
-    /// 在指定位置绘制字符
-    ///
-    /// ## 参数
-    /// - x: x坐标(局部坐标)
-    /// - y: y坐标(局部坐标)
-    /// - c: 待绘制的字符
-    /// - color: 字符颜色
-    fn char(&mut self, x: i32, y: i32, c: char, color: Color) {
-        let mut offset = (c as usize) * 16;
-        for row in 0..16 {
-            let row_data = if offset < FONT_ASSET.len() {
-                FONT_ASSET[offset]
-            } else {
-                0
-            };
-
-            for col in 0..8 {
-                let pixel = (row_data >> (7 - col)) & 1;
-                if pixel > 0 {
-                    self.pixel(x + col, y + row, color);
-                }
-            }
-            offset += 1;
-        }
-    }
-
-    /// # 函数功能
-    /// 在指定位置绘制一幅图像至帧缓冲区
-    ///
-    /// ## 参数
-    /// - start_x: 起始x坐标(局部坐标)
-    /// - start_y: 起始y坐标(局部坐标)
-    /// - w: 图像宽度
-    /// - h: 图像高度
-    /// - data: 图像数据
-    fn image(&mut self, start_x: i32, start_y: i32, w: u32, h: u32, data: &[Color]) {
-        match self.mode().get() {
-            RenderMode::Blend => self.image_fast(start_x, start_y, w, h, data),
-            RenderMode::Overwrite => self.image_opaque(start_x, start_y, w, h, data),
-        }
-    }
-
-    /// # 函数功能
-    /// 从指定行开始绘制一幅图像至帧缓冲区
-    ///
-    /// ## 参数
-    /// - start: 起始行数
-    /// - image_data: 图像帧缓冲数据
-    fn image_over(&mut self, start: i32, image_data: &[Color]) {
-        let start = start as usize * self.width() as usize;
-        let window_data = self.data_mut();
-        let stop = cmp::min(start + image_data.len(), window_data.len());
-        let end = cmp::min(image_data.len(), window_data.len() - start);
-
-        window_data[start..stop].copy_from_slice(&image_data[..end]);
-    }
-
-    ///Display an image using non transparent method
-    /// TODO 注释补充
-    #[inline(always)]
-    fn image_opaque(&mut self, start_x: i32, start_y: i32, w: u32, h: u32, image_data: &[Color]) {
-        let w = w as usize;
-        let mut h = h as usize;
-        let width = self.width() as usize;
-        let height = self.height() as usize;
-        let start_x = start_x as usize;
-        let start_y = start_y as usize;
-
-        //check boundaries
-        if start_x >= width || start_y >= height {
-            return;
-        }
-        if h + start_y > height {
-            h = height - start_y;
-        }
-        let window_data = self.data_mut();
-        let offset = start_y * width + start_x;
-        //copy image slices to window line by line
-        for l in 0..h {
-            let start = offset + l * width;
-            let mut stop = start + w;
-            let begin = l * w;
-            let mut end = begin + w;
-            //check boundaries
-            if start_x + w > width {
-                stop = (start_y + l + 1) * width - 1;
-                end = begin + stop - start;
-            }
-            window_data[start..stop].copy_from_slice(&image_data[begin..end]);
-        }
-    }
-
-    /// Speed improved, image can be outside of window boundary
-    /// TODO 注释补充
-    #[inline(always)]
-    fn image_fast(&mut self, start_x: i32, start_y: i32, w: u32, h: u32, image_data: &[Color]) {
-        let w = w as usize;
-        let h = h as usize;
-        let width = self.width() as usize;
-        let start_x = start_x as usize;
-        let start_y = start_y as usize;
-
-        //simply return if image is outside of window
-        if start_x >= width || start_y >= self.height() as usize {
-            return;
-        }
-        let window_data = self.data_mut();
-        let offset = start_y * width + start_x;
-
-        //copy image slices to window line by line
-        for l in 0..h {
-            let start = offset + l * width;
-            let mut stop = start + w;
-            let begin = l * w;
-            let end = begin + w;
-
-            //check boundaries
-            if start_x + w > width {
-                stop = (start_y + l + 1) * width;
-            }
-            let mut k = 0;
-            for i in begin..end {
-                if i < image_data.len() {
-                    let new = image_data[i].data;
-                    let alpha = (new >> 24) & 0xFF;
-                    if alpha > 0 && (start + k) < window_data.len() && (start + k) < stop {
-                        let old = &mut window_data[start + k].data;
-                        if alpha >= 255 {
-                            *old = new;
-                        } else {
-                            let n_alpha = 255 - alpha;
-                            let rb = ((n_alpha * (*old & 0x00FF00FF))
-                                + (alpha * (new & 0x00FF00FF)))
-                                >> 8;
-                            let ag = (n_alpha * ((*old & 0xFF00FF00) >> 8))
-                                + (alpha * (0x01000000 | ((new & 0x0000FF00) >> 8)));
-
-                            *old = (rb & 0x00FF00FF) | (ag & 0xFF00FF00);
-                        }
-                    }
-                    k += 1;
-                }
-            }
-        }
     }
 }

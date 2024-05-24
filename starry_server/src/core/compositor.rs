@@ -23,7 +23,7 @@ pub fn compositor() -> Option<Arc<Compositor>> {
 #[allow(dead_code)]
 /// 合成渲染器
 pub struct Compositor {
-    /// 待重绘的窗口
+    /// 待重绘的矩形区域
     redraws: RefCell<Vec<Rect>>,
     /// 帧缓冲文件
     fb_file: RefCell<File>,

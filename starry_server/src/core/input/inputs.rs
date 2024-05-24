@@ -4,6 +4,7 @@ use starry_client::base::event::{ButtonEvent, Event, MouseRelativeEvent};
 use std::{fs::File, io::Read};
 
 const MOUSE_DEVICE_PATH: &str = "/dev/char/psmouse";
+const KBD_DEVICE_PATH: &str = "/dev/char/tty0";
 
 bitflags! {
     /// 鼠标状态掩码
@@ -124,5 +125,33 @@ impl InputHandler for MouseInputHandler {
         }
         self.packet_index = (self.packet_index + 1) % 3;
         return events;
+    }
+}
+
+// TODO
+pub struct KeyboardInputHandler {
+    /// 读取的文件
+    file: File,
+}
+
+impl KeyboardInputHandler {
+    pub fn new() -> Box<KeyboardInputHandler> {
+        let file = File::open(KBD_DEVICE_PATH).expect("Fail to open mouse device");
+        // println!("[Init] Keyboard_Input_Handler created successfully!");
+        Box::new(KeyboardInputHandler { file: file })
+    }
+}
+
+impl InputHandler for KeyboardInputHandler {
+    fn get_listening_file(&mut self) -> &File {
+        &self.file
+    }
+
+    fn set_listening_file(&mut self, file: File) {
+        self.file = file;
+    }
+
+    fn handle(&mut self, _packet: u8) -> Vec<Event> {
+        Vec::new()
     }
 }

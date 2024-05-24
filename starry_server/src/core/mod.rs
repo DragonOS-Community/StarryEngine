@@ -85,10 +85,11 @@ impl StarryServer {
 
         // println!("[Init] Starry_Server start main loop!");
         loop {
-            input_manager().unwrap().polling_all();
-            window_manager().unwrap().handle_all_events();
-            compositor().unwrap().redraw_all();
-            // std::thread::sleep(std::time::Duration::from_millis(1));
+            input_manager().unwrap().polling_all(); // 轮询所有设备文件
+            window_manager().unwrap().polling_all_windows(); // 轮询所有窗口通信管道
+            window_manager().unwrap().handle_all_events(); // 处理所有事件
+            compositor().unwrap().redraw_all(); // 重绘所有更新区域
+            std::thread::sleep(std::time::Duration::from_millis(1));
         }
     }
 }

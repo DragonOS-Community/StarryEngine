@@ -2,7 +2,7 @@ use std::{cell::RefCell, fs::File, io::Read, sync::Arc};
 
 use starry_client::base::event::Event;
 
-use self::inputs::MouseInputHandler;
+use self::inputs::{KeyboardInputHandler, MouseInputHandler};
 
 use super::window_manager::window_manager;
 
@@ -25,9 +25,8 @@ impl InputManager {
     /// 创建输入管理器
     pub fn new() {
         let mut input_handlers = Vec::new();
-        // TODO: 通过设备检测添加
         input_handlers.push(MouseInputHandler::new() as Box<dyn InputHandler>);
-        // TODO: 处理键盘输入
+        input_handlers.push(KeyboardInputHandler::new() as Box<dyn InputHandler>);
         let input_manager = InputManager {
             handlers: RefCell::new(input_handlers),
         };
@@ -39,7 +38,7 @@ impl InputManager {
         // println!("[Init] Input_Manager created successfully!");
     }
 
-    /// 轮询所有输入设备
+    /// 驱动所有输入处理器
     pub fn polling_all(&self) {
         // println!("[Info] Input_Manager polling all");
         for handle in self.handlers.borrow_mut().iter_mut() {
@@ -63,15 +62,18 @@ pub trait InputHandler {
     /// 轮询文件
     fn polling(&mut self) {
         let mut buf: [u8; 1024] = [0; 1024];
-        // TODO: 错误信息提示相应文件路径
-        let count = self
-            .get_listening_file()
-            .read(&mut buf)
-            .expect("[Error] Fail to polling file");
-        // println!("[Info] Input_Handler polling read {:?} bytes", count);
-        for i in 0..count {
-            let events = self.handle(buf[i]);
-            window_manager().unwrap().send_events(events);
+        let mut file = self.get_listening_file();
+        let result = file.read(&mut buf);
+
+        if result.is_err() {
+            println!("[Error] Filed to polling file {:?}", file);
+        } else {
+            let count = result.ok().unwrap();
+            // println!("[Info] Input_Handler polling read {:?} bytes", count);
+            for i in 0..count {
+                let events = self.handle(buf[i]);
+                window_manager().unwrap().send_events(events);
+            }
         }
     }
 }

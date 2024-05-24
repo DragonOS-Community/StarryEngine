@@ -15,6 +15,7 @@ use crate::{
 
 use super::{PivotType, Widget};
 
+// TODO 支持"调整字体大小以适配"的选项
 #[derive(PartialEq, Copy, Clone)]
 pub enum LabelOverflowType {
     /// 不适配 溢出部分不显示
@@ -23,9 +24,9 @@ pub enum LabelOverflowType {
     ShinkToFit,
     /// 省略多余内容
     Omit,
-    // TODO 支持"调整字体大小以适配"的选项
 }
 
+// TODO 暂不支持自动换行
 pub struct Label {
     self_ref: RefCell<Weak<Label>>,
     rect: Cell<Rect>,
@@ -46,7 +47,6 @@ pub struct Label {
     text_pivot: Cell<PivotType>,
 }
 
-// TODO 暂时只支持渲染一行字体
 impl Label {
     pub fn new() -> Arc<Self> {
         let label = Arc::new(Label {
@@ -76,10 +76,13 @@ impl Label {
         let text = self.real_text.borrow();
 
         match self.adapt_type.get() {
+            // 不适配 溢出部分不显示
             LabelOverflowType::None => {}
+            // 根据字数调整大小
             LabelOverflowType::ShinkToFit => {
-                self.resize(text.len() as u32 * 8 as u32, 16);
+                self.resize_base(text.len() as u32 * 8 as u32, 16);
             }
+            // 省略溢出的部分
             LabelOverflowType::Omit => {
                 let rect = self.rect.get();
 
@@ -99,10 +102,23 @@ impl Label {
             self.show_text.borrow().len() as u32 * 8,
             16,
         ));
+
+        self.text_rect.set(align_rect(
+            self.text_rect.get(),
+            self.rect.get(),
+            self.text_pivot.get(),
+            Vector2::new(0, 0),
+        ));
     }
 
     pub fn set_adapt_type(&self, adapt_type: LabelOverflowType) {
         self.adapt_type.set(adapt_type);
+        self.handle_overflow();
+        self.arrange_all();
+    }
+
+    pub fn set_text_pivot_type(&self, pivot: PivotType) {
+        self.text_pivot.set(pivot);
     }
 }
 
@@ -169,7 +185,6 @@ impl Widget for Label {
                             current_rect,
                             self.panel().borrow().clone().unwrap().rect(),
                         );
-                        // TODO 应用主题(Theme)颜色
                         renderer.char(local_rect.x, local_rect.y, char, self.text_color.get());
                     } else {
                         println!("[Error] Label do not belong to any panel!");
@@ -204,14 +219,8 @@ impl Widget for Label {
 
     fn resize(&self, width: u32, height: u32) {
         self.resize_base(width, height);
-
         self.handle_overflow();
-        self.text_rect.set(align_rect(
-            self.text_rect.get(),
-            self.rect.get(),
-            self.text_pivot.get(),
-            Vector2::new(0, 0),
-        ));
+        self.arrange_all();
     }
 
     fn arrange_self(&self) {
@@ -231,13 +240,8 @@ impl Text for Label {
         let text = text.into();
         (*self.real_text.borrow_mut()) = text.clone();
         (*self.show_text.borrow_mut()) = text;
-        self.handle_overflow();
-        align_rect(
-            self.text_rect.get(),
-            self.rect.get(),
-            self.text_pivot.get(),
-            Vector2::new(0, 0),
-        );
+        self.handle_overflow(); //处理文本溢出的情况
+        self.arrange_all();
         self
     }
 
