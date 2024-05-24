@@ -1,3 +1,5 @@
+use std::fs::File;
+
 use starry_client::base::event::Event;
 
 use crate::core::SCREEN_HEIGHT;
@@ -26,25 +28,22 @@ pub struct Window {
     pub scale: i32,
     /// 窗口标题
     pub title: String,
-    // pub asynchronous: bool,
-    // pub barderless: bool,
-    // pub resizable: bool,
+    /// 是否无边界
+    pub barderless: bool,
+    /// 是否大小可变
+    pub resizable: bool,
     /// 是否透明
     pub transparent: bool,
-    // pub unclosable: bool,
+    /// 是否不可关闭
+    pub unclosable: bool,
     /// 排序模式
     pub zorder: WindowZOrderMode,
-
     /// 窗体图像
     pub image: Image,
-    /// 窗口标题图像(聚焦)
-    // pub title_image: Image,
-    /// 窗口标题图像(非聚焦)
-    // pub title_image_unfocused: Image,
-
     /// 事件数组
     pub events: Vec<Event>,
-    // TODO 增加所需字段
+    // 命名管道文件
+    pub file_opt: Option<File>,
 }
 
 impl Window {
@@ -54,11 +53,15 @@ impl Window {
             y: y,
             scale: scale,
             title: String::new(),
+            barderless: false,
             transparent: false,
+            resizable: true,
+            unclosable: false,
             zorder: WindowZOrderMode::Normal,
             image: Image::from_path(image_path)
                 .unwrap_or(Image::new(SCREEN_HEIGHT as i32, SCREEN_HEIGHT as i32)),
             events: Vec::new(),
+            file_opt: None,
         }
     }
 

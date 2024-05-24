@@ -5,7 +5,10 @@ use std::{
     sync::Arc,
 };
 
-use starry_client::base::event::{Event, EventOption, MouseRelativeEvent, MouseUpdateEvent};
+use starry_client::base::event::{
+    ButtonEvent, Event, EventOption, KeyEvent, MouseRelativeEvent, MouseUpdateEvent,
+    WindowMoveEvent, WindowResizeEvent,
+};
 
 use crate::{
     base::{
@@ -173,22 +176,30 @@ impl WindowManager {
         }
     }
 
+    pub fn polling_all_windows(&self) {}
+
     /// # 函数功能
     /// 处理事件
     ///
     /// ## 参数
     /// 事件对象
-    pub fn handle_event(&self, event_union: Event) {
+    fn handle_event(&self, event_union: Event) {
         // println!("[Info] Window_Manager handle event {:?}", event_union.to_option());
         match event_union.to_option() {
             EventOption::MouseRelative(event) => self.handle_mouse_relative_event(event),
-            EventOption::Button(_event) => {}
-            unknown => println!("[Error] Unexpected event: {:?}", unknown),
+            EventOption::Button(event) => self.handle_button_event(event),
+            EventOption::Key(event) => self.handle_key_event(event),
+            EventOption::WindowMove(event) => self.handle_window_move_event(event),
+            EventOption::WindowResize(event) => self.handle_window_resize_event(event),
+            EventOption::Unknown(event) => {
+                println!("[Error] WindowManager handle unkonwn event {:?}", event)
+            }
+            EventOption::None => {}
         }
     }
 
     /// 处理鼠标相对移动事件
-    pub fn handle_mouse_relative_event(&self, event: MouseRelativeEvent) {
+    fn handle_mouse_relative_event(&self, event: MouseRelativeEvent) {
         // TODO: 将事件传递给窗口，同时考虑窗口对鼠标位置的影响
 
         let max_x: i32 = SCREEN_WIDTH as i32;
@@ -209,7 +220,7 @@ impl WindowManager {
     }
 
     /// 处理鼠标移动事件
-    pub fn handle_mouse_update_event(&self, event: MouseUpdateEvent) {
+    fn handle_mouse_update_event(&self, event: MouseUpdateEvent) {
         let /*mut*/ new_cursor = CursorKind::Normal;
 
         // TODO: 判断新的鼠标状态
@@ -217,6 +228,18 @@ impl WindowManager {
 
         self.update_cursor(event.x, event.y, new_cursor);
     }
+
+    // TODO
+    fn handle_button_event(&self, _event: ButtonEvent) {}
+
+    // TODO
+    fn handle_key_event(&self, _event: KeyEvent) {}
+
+    // TODO
+    fn handle_window_move_event(&self, _event: WindowMoveEvent) {}
+
+    // TODO
+    fn handle_window_resize_event(&self, _event: WindowResizeEvent) {}
 
     /// # 函数功能
     /// 更新鼠标状态

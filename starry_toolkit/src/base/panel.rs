@@ -22,6 +22,16 @@ const TTY_DEVICE_PATH: &str = "/dev/char/tty0";
 
 const DURATION_TIME: Duration = Duration::from_millis(25);
 
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum PanelRendererMode {
+    /// 标准模式
+    Normal,
+    /// 绘制线框
+    WithWireframe,
+    /// 仅线框
+    OnlyWireframe,
+}
+
 /// 面板渲染器
 pub struct PanelRenderer<'a> {
     /// 客户端窗口
@@ -30,7 +40,7 @@ pub struct PanelRenderer<'a> {
 
 impl<'a> PanelRenderer<'a> {
     pub fn new(window: &'a mut Window) -> Self {
-        PanelRenderer { window }
+        PanelRenderer { window: window }
     }
 }
 
@@ -73,7 +83,7 @@ pub struct Panel {
     window: RefCell<Window>,
     /// 面板矩形
     rect: Cell<Rect>,
-    /// 子组件数组
+    /// 管理的控件对象数组
     widgets: RefCell<Vec<Arc<dyn Widget>>>,
     /// 窗口是否打开
     running: Cell<bool>,
@@ -85,6 +95,8 @@ pub struct Panel {
     redraw: Cell<bool>,
     /// tty文件
     tty_file: RefCell<File>,
+    /// 渲染模式
+    renderer_mode: Cell<PanelRendererMode>,
 }
 
 impl Panel {
@@ -108,6 +120,7 @@ impl Panel {
             tty_file: RefCell::new(
                 File::open(TTY_DEVICE_PATH).expect("[Error] Panel failed to open tty file"),
             ),
+            renderer_mode: Cell::new(PanelRendererMode::Normal),
         });
 
         (*panel.self_ref.borrow_mut()) = Arc::downgrade(&panel);
@@ -173,6 +186,11 @@ impl Panel {
         (*window).set_title(title);
     }
 
+    /// 设置是否绘制线框
+    pub fn set_renderer_mode(&self, renderer_mode: PanelRendererMode) {
+        self.renderer_mode.set(renderer_mode);
+    }
+
     /// 关闭窗口
     pub fn close(&self) {
         self.running.set(false);
@@ -207,12 +225,47 @@ impl Panel {
     /// 渲染单个组件
     pub fn draw_widget(&self, renderer: &mut dyn Renderer, widget: &Arc<dyn Widget>) {
         widget.update();
-        widget.draw(renderer, self.is_focused(widget));
+
+        if self.renderer_mode.get() == PanelRendererMode::Normal
+            || self.renderer_mode.get() == PanelRendererMode::WithWireframe
+        {
+            widget.draw(renderer, self.is_focused(widget));
+        }
+
+        if self.renderer_mode.get() == PanelRendererMode::WithWireframe
+            || self.renderer_mode.get() == PanelRendererMode::OnlyWireframe
+        {
+            Self::draw_rect_wireframe(renderer, widget.rect().get(), Color::rgb(0, 0, 0));
+        }
 
         // 渲染子组件
         for child in widget.children().borrow().iter() {
-            self.draw_widget(renderer, child);
+            if self.renderer_mode.get() == PanelRendererMode::Normal
+                || self.renderer_mode.get() == PanelRendererMode::WithWireframe
+            {
+                self.draw_widget(renderer, child);
+            }
+
+            if self.renderer_mode.get() == PanelRendererMode::WithWireframe
+                || self.renderer_mode.get() == PanelRendererMode::OnlyWireframe
+            {
+                Self::draw_rect_wireframe(renderer, child.rect().get(), Color::rgb(0, 0, 0));
+            }
         }
+    }
+
+    /// 绘制矩形线框
+    fn draw_rect_wireframe(renderer: &mut dyn Renderer, rect: Rect, color: Color) {
+        renderer.lines(
+            &[
+                [rect.top_left_pos().x, rect.top_left_pos().y],
+                [rect.top_right_pos().x, rect.top_right_pos().y],
+                [rect.bottom_right_pos().x, rect.bottom_right_pos().y],
+                [rect.bottom_left_pos().x, rect.bottom_left_pos().y],
+                [rect.top_left_pos().x, rect.top_left_pos().y],
+            ],
+            color,
+        );
     }
 
     pub fn tick(&self) {

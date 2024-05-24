@@ -6,18 +6,23 @@ pub enum EventOption {
     MouseRelative(MouseRelativeEvent),
     /// 鼠标按键事件
     Button(ButtonEvent),
+    /// 窗口位置移动事件
+    WindowMove(WindowMoveEvent),
+    /// 窗口大小改变事件
+    WindowResize(WindowResizeEvent),
+    /// 未知事件
+    Unknown(Event),
     /// 空事件
     None,
-    /// 未知事件
-    Unknown,
 }
 
-/// TODO: 整理
 pub const EVENT_NONE: i64 = 0;
 pub const EVENT_KEY: i64 = 1;
 pub const EVENT_MOUSE_RELATIVE: i64 = 2;
 pub const EVENT_BUTTON: i64 = 3;
 pub const EVENT_MOUSE_UPDATE: i64 = 4;
+pub const EVENT_WINDOW_MOVE: i64 = 5;
+pub const EVENT_WINDOW_RESIZE: i64 = 6;
 
 /// 通用事件
 #[derive(Copy, Clone, Debug)]
@@ -44,7 +49,7 @@ impl Event {
                 EventOption::MouseRelative(MouseRelativeEvent::from_event(self))
             }
             EVENT_BUTTON => EventOption::Button(ButtonEvent::from_event(self)),
-            _ => EventOption::Unknown,
+            _ => EventOption::Unknown(self),
         }
     }
 }
@@ -171,6 +176,54 @@ impl MouseUpdateEvent {
         MouseUpdateEvent {
             x: event.a as i32,
             y: event.b as i32,
+        }
+    }
+}
+
+/// 窗口位置移动事件
+#[derive(Copy, Clone, Debug)]
+pub struct WindowMoveEvent {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl WindowMoveEvent {
+    pub fn to_event(&self) -> Event {
+        Event {
+            code: EVENT_WINDOW_MOVE,
+            a: self.x as i64,
+            b: self.y as i64,
+        }
+    }
+
+    pub fn from_event(event: Event) -> WindowMoveEvent {
+        WindowMoveEvent {
+            x: event.a as i32,
+            y: event.b as i32,
+        }
+    }
+}
+
+/// 窗口改变大小事件
+#[derive(Copy, Clone, Debug)]
+pub struct WindowResizeEvent {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl WindowResizeEvent {
+    pub fn to_event(&self) -> Event {
+        Event {
+            code: EVENT_WINDOW_RESIZE,
+            a: self.width as i64,
+            b: self.height as i64,
+        }
+    }
+
+    pub fn from_event(event: Event) -> WindowResizeEvent {
+        WindowResizeEvent {
+            width: event.a as u32,
+            height: event.b as u32,
         }
     }
 }
