@@ -94,7 +94,6 @@ impl List {
         return res;
     }
 
-    // TODO 实现列表布局的元素排列
     pub fn arrange_elements(&self) {
         if self.elements.borrow().is_empty() {
             return;

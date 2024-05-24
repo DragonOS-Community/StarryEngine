@@ -119,19 +119,6 @@ impl Widget for AssetItemList {
     fn draw(&self, renderer: &mut dyn Renderer, focused: bool) {
         if focused != self.cache_focused.get() {
             self.cache_focused.set(focused);
-
-            // 如果当前被选中，则背景高亮
-            let children = self.children.borrow_mut();
-            let bg_image = children[0].self_ref();
-            let bg_image = bg_image
-                .as_any_ref()
-                .downcast_ref::<Image>()
-                .expect("[Error] AssetItem failed to cast widget to image");
-            if focused {
-                bg_image.set_from_color(Color::rgba(0, 255, 255, 64));
-            } else {
-                bg_image.set_from_color(Color::rgba(0, 0, 0, 0));
-            }
         }
 
         for child in self.children.borrow().iter() {
